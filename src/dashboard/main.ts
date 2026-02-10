@@ -12,11 +12,12 @@ interface CoinData {
 
 interface Statistics {
   totalCoins: number;
-  passingCoins: number;
-  avgRatio: number;
-  passRate: number;
-  filterMultiplier: number;
-  exchanges: string[];
+  filteredCoins: number;
+  averageOIToMC: number;
+  medianOIToMC: number;
+  highestOIToMC: CoinData | null;
+  lowestOIToMC: CoinData | null;
+  lastRefresh: string;
 }
 
 interface ApiResponse<T> {
@@ -68,11 +69,13 @@ async function fetchFilteredCoins(): Promise<CoinData[]> {
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const result: ApiResponse<CoinData[]> = await response.json();
+    const result = await response.json();
     if (!result.success || !result.data) {
       throw new Error(result.error || 'Failed to fetch coins data');
     }
-    return result.data;
+    // Backend wraps coins in { data: { coins, total, filtered, ... } }
+    const envelope = result.data as { coins: CoinData[]; total: number; filtered: number; returned: number; config: unknown };
+    return envelope.coins;
   } catch (error) {
     console.error('Error fetching coins:', error);
     throw error;
@@ -183,17 +186,14 @@ function updateLastUpdated(): void {
 
 function updateStatistics(stats: Statistics): void {
   elements.totalCoins.textContent = stats.totalCoins.toString();
-  elements.passingCoins.textContent = stats.passingCoins.toString();
-  elements.avgRatio.textContent = formatRatio(stats.avgRatio);
-  elements.passRate.textContent = formatPercentage(stats.passRate);
+  elements.passingCoins.textContent = stats.filteredCoins.toString();
+  elements.avgRatio.textContent = formatRatio(stats.averageOIToMC);
 
-  // Update exchanges list
-  elements.exchangesList.innerHTML = stats.exchanges
-    .map(exchange => `<span class="chip">${exchange}</span>`)
-    .join('');
-
-  // Update multiplier input
-  elements.multiplierInput.value = stats.filterMultiplier.toString();
+  // Calculate pass rate from totalCoins and filteredCoins
+  const passRate = stats.totalCoins > 0
+    ? (stats.filteredCoins / stats.totalCoins) * 100
+    : 0;
+  elements.passRate.textContent = formatPercentage(passRate);
 }
 
 function renderCoinRow(coin: CoinData): string {

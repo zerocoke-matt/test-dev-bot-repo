@@ -115,15 +115,27 @@ export class AggregatorService {
 
   /**
    * Calculate statistics for filtered coins
+   * Note: Statistics are computed from the full (unpaginated) filtered set
+   * to avoid truncated results when more coins match than the page limit.
    */
   async getStatistics(params?: QueryParams): Promise<Statistics> {
     logger.debug('Calculating statistics');
 
-    // Get filtered coins
-    const filterResult = params
-      ? await this.getFilteredCoins(params)
-      : await this.getFilteredCoins({});
+    // Get all coins (from cache or API) — no pagination applied
+    const allCoins = await this.getAllCoins();
 
+    // Build filter config from params (same logic as getFilteredCoins)
+    const effectiveParams = params ?? {};
+    const filterConfig: FilterConfig = {
+      multiplier: effectiveParams.multiplier ?? this.defaultMultiplier,
+      minMarketCap: effectiveParams.minMarketCap,
+      maxMarketCap: effectiveParams.maxMarketCap,
+      minOI: effectiveParams.minOI,
+      symbols: effectiveParams.symbols ? effectiveParams.symbols.split(',').map((s) => s.trim()) : undefined,
+    };
+
+    // Filter coins without pagination to get the complete set
+    const filterResult = this.filterService.filterCoins(allCoins, filterConfig);
     const coins = filterResult.coins;
 
     if (coins.length === 0) {
