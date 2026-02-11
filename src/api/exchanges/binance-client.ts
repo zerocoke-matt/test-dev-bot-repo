@@ -38,6 +38,7 @@ export class BinanceClient extends BaseExchangeClient {
       const oiAmount = parseFloat(response.data.openInterest);
 
       // Binance returns OI in contracts, we need to get mark price to convert to USD
+      await this.rateLimit();
       const priceResponse = await this.httpClient.get<{ markPrice: string }>(
         '/fapi/v1/premiumIndex',
         { params: { symbol: exchangeSymbol } }

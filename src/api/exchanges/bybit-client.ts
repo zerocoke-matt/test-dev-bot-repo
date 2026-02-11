@@ -62,6 +62,7 @@ export class BybitClient extends BaseExchangeClient {
 
       // Bybit returns OI in coin amount for linear, need price conversion
       // Fetch ticker for mark price
+      await this.rateLimit();
       const tickerResponse = await this.httpClient.get<{
         retCode: number;
         result: { list: Array<{ markPrice: string }> };

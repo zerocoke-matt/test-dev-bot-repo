@@ -58,6 +58,7 @@ export class OKXClient extends BaseExchangeClient {
       const oiCoins = parseFloat(oiData[0].oi);
 
       // OKX returns OI in contract count, need mark price for USD
+      await this.rateLimit();
       const tickerResponse = await this.httpClient.get<{
         code: string;
         data: Array<{ markPx: string }>;

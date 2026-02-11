@@ -50,6 +50,7 @@ export class BitgetClient extends BaseExchangeClient {
       const oiAmount = parseFloat(response.data.data.amount);
 
       // Bitget returns OI in coin amount, need price for USD conversion
+      await this.rateLimit();
       const tickerResponse = await this.httpClient.get<{
         code: string;
         data: Array<{ markPrice: string }>;
