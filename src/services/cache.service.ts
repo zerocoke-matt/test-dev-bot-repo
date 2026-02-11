@@ -10,6 +10,7 @@ import { CacheConfig } from '../types/config.types';
 export class CacheService {
   private cache: NodeCache;
   private ttl: number;
+  private inFlight: Map<string, Promise<unknown>> = new Map();
 
   constructor(config: CacheConfig) {
     this.ttl = config.ttl;
@@ -105,10 +106,26 @@ export class CacheService {
       return cached;
     }
 
+    // Coalesce concurrent misses: if another caller is already computing
+    // the value for this key, reuse that promise instead of calling factory() again.
+    const existing = this.inFlight.get(key) as Promise<T> | undefined;
+    if (existing) {
+      logger.debug(`Cache IN-FLIGHT join: ${key}`);
+      return existing;
+    }
+
     logger.debug(`Cache MISS: ${key}, computing value`);
-    const value = await factory();
-    this.set(key, value, ttl);
-    return value;
+    const promise = factory().then((value) => {
+      this.set(key, value, ttl);
+      this.inFlight.delete(key);
+      return value;
+    }).catch((err) => {
+      this.inFlight.delete(key);
+      throw err;
+    });
+
+    this.inFlight.set(key, promise);
+    return promise;
   }
 
   /**

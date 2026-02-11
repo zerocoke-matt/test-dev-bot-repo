@@ -267,6 +267,14 @@ describe('DataFetcherService', () => {
       expect(result!.oiToMcRatio).toBe(0);
     });
 
+    it('should return null for unmapped symbol without calling CoinGecko', async () => {
+      const result = await dataFetcher.fetchCoinData('NOTMAPPED');
+
+      expect(result).toBeNull();
+      // CoinGecko should never be called for an unmapped symbol
+      expect(mockCoinGeckoClient.getMarketDataByIds).not.toHaveBeenCalled();
+    });
+
     it('should handle lowercase symbol input', async () => {
       mockExchangeClients.forEach((client) => {
         client.getOpenInterest.mockResolvedValue(

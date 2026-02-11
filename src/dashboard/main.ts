@@ -24,7 +24,7 @@ interface Statistics {
 }
 
 // Configuration
-const API_BASE = 'http://localhost:3000/api';
+const API_BASE = '/api';
 const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const TOAST_DURATION = 3000; // 3 seconds
 

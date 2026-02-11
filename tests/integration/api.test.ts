@@ -223,6 +223,24 @@ describe('API Endpoints', () => {
       expect(response.body.success).toBe(false);
       expect(response.body.error).toBeDefined();
     });
+
+    it('should return 400 when limit is not a valid number', async () => {
+      const response = await request(app).get('/api/coins?limit=abc');
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('VALIDATION_ERROR');
+      expect(response.body.error.message).toContain('limit');
+    });
+
+    it('should return 400 when offset is not a valid number', async () => {
+      const response = await request(app).get('/api/coins?offset=xyz');
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('VALIDATION_ERROR');
+      expect(response.body.error.message).toContain('offset');
+    });
   });
 
   describe('GET /api/coins/:symbol', () => {

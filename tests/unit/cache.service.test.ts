@@ -249,6 +249,40 @@ describe('CacheService', () => {
 
       expect(cacheService.get('key')).toBeUndefined();
     });
+
+    it('should coalesce concurrent misses for the same key', async () => {
+      let callCount = 0;
+      const factory = jest.fn().mockImplementation(async () => {
+        callCount++;
+        await wait(100);
+        return `value-${callCount}`;
+      });
+
+      // Fire two concurrent getOrSet calls for the same key
+      const [result1, result2] = await Promise.all([
+        cacheService.getOrSet('dup', factory),
+        cacheService.getOrSet('dup', factory),
+      ]);
+
+      // Factory should only be invoked once
+      expect(factory).toHaveBeenCalledTimes(1);
+      // Both callers receive the same value
+      expect(result1).toBe(result2);
+      expect(result1).toBe('value-1');
+    });
+
+    it('should clean up in-flight entry on factory error', async () => {
+      const failFactory = jest.fn().mockRejectedValue(new Error('fail'));
+      const successFactory = jest.fn().mockResolvedValue('recovered');
+
+      // First call fails
+      await expect(cacheService.getOrSet('err', failFactory)).rejects.toThrow('fail');
+
+      // Second call should invoke its own factory (not reuse the failed promise)
+      const result = await cacheService.getOrSet('err', successFactory);
+      expect(result).toBe('recovered');
+      expect(successFactory).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('mget', () => {

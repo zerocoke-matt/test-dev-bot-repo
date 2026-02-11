@@ -82,11 +82,16 @@ export class DataFetcherService {
     logger.debug(`Fetching data for ${symbol}`);
 
     try {
+      // Short-circuit if the symbol has no CoinGecko mapping to avoid wasting API quota
+      const coingeckoId = SYMBOL_MAPPINGS.find(m => m.base === symbol.toUpperCase())?.coingeckoId;
+      if (!coingeckoId) {
+        logger.warn(`No CoinGecko mapping for ${symbol}, skipping`);
+        return null;
+      }
+
       const [oiResult, marketData] = await Promise.all([
         this.fetchAggregateOI(symbol),
-        this.coingeckoClient.getMarketDataByIds(
-          [SYMBOL_MAPPINGS.find(m => m.base === symbol.toUpperCase())?.coingeckoId || '']
-        ),
+        this.coingeckoClient.getMarketDataByIds([coingeckoId]),
       ]);
 
       const mcData = marketData[0];

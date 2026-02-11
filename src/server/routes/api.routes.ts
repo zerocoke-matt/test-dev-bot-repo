@@ -66,6 +66,28 @@ export function createApiRouter(aggregator: AggregatorService): Router {
         offset: req.query.offset ? parseInt(req.query.offset as string, 10) : undefined,
       };
 
+      // Guard against NaN from non-numeric query strings (e.g. "?limit=abc")
+      if (params.limit !== undefined && isNaN(params.limit)) {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({
+          success: false,
+          error: {
+            code: ERROR_CODES.VALIDATION_ERROR,
+            message: 'limit must be a valid number',
+          },
+        });
+        return;
+      }
+      if (params.offset !== undefined && isNaN(params.offset)) {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({
+          success: false,
+          error: {
+            code: ERROR_CODES.VALIDATION_ERROR,
+            message: 'offset must be a valid number',
+          },
+        });
+        return;
+      }
+
       // Get filtered coins
       const result = await aggregator.getFilteredCoins(params);
 
