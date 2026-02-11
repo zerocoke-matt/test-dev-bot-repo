@@ -19,7 +19,7 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: true,
-    minify: 'terser',
+    minify: true,
     target: 'es2020',
     rollupOptions: {
       input: {

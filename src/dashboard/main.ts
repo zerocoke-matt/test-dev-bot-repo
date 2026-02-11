@@ -24,7 +24,9 @@ interface Statistics {
 }
 
 // Configuration
-const API_BASE = '/api';
+// Use VITE_API_BASE env var for split frontend/backend deployments,
+// falling back to '/api' which works behind a reverse proxy or same-origin.
+const API_BASE = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE) || '/api';
 const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const TOAST_DURATION = 3000; // 3 seconds
 
