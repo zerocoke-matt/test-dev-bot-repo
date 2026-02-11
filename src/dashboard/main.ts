@@ -285,10 +285,9 @@ function updateStatistics(stats: Statistics): void {
 }
 
 // Exchange OI Mini Bar Chart
+// NOTE: The API does not expose per-exchange OI breakdown. These bars
+// use estimated market-share ratios and are clearly labelled as such.
 function renderExchangeBars(_symbol: string, aggregateOI: number): string {
-  // Since we don't have per-exchange breakdown from the API,
-  // simulate reasonable distribution based on known market shares
-  // Binance ~40%, Bybit ~25%, Bitget ~20%, OKX ~15%
   const exchanges = [
     { name: 'binance', label: 'Binance', share: 0.40 },
     { name: 'bybit', label: 'Bybit', share: 0.25 },
@@ -299,7 +298,7 @@ function renderExchangeBars(_symbol: string, aggregateOI: number): string {
   // Guard against zero OI to avoid NaN from division by zero
   if (aggregateOI <= 0) {
     return exchanges.map(ex => {
-      const tooltip = `${ex.label}: ${formatCurrency(0)}`;
+      const tooltip = `${ex.label} (est.): ${formatCurrency(0)}`;
       return `<div class="exchange-bar ${ex.name}" style="height: 10%" data-tooltip="${tooltip}"></div>`;
     }).join('');
   }
@@ -309,7 +308,7 @@ function renderExchangeBars(_symbol: string, aggregateOI: number): string {
   return exchanges.map(ex => {
     const oi = aggregateOI * ex.share;
     const heightPct = Math.max(10, (oi / maxOI) * 100);
-    const tooltip = `${ex.label}: ${formatCurrency(oi)}`;
+    const tooltip = `${ex.label} (est.): ${formatCurrency(oi)}`;
     return `<div class="exchange-bar ${ex.name}" style="height: ${heightPct}%" data-tooltip="${tooltip}"></div>`;
   }).join('');
 }
@@ -541,8 +540,10 @@ async function loadData(forceRefresh: boolean = false): Promise<void> {
 // Auto-refresh Management
 function startAutoRefresh(): void {
   stopAutoRefresh();
+  // Auto-refresh reads cached data to avoid hammering exchange APIs.
+  // Only manual refresh (button click) triggers POST /api/refresh.
   autoRefreshTimer = window.setInterval(() => {
-    loadData(true);
+    loadData();
   }, AUTO_REFRESH_INTERVAL);
 }
 
