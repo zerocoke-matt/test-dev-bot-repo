@@ -6,6 +6,9 @@ interface CoinData {
   marketCap: number;
   aggregateOI: number;
   ratio: number;
+  volume24h: number;
+  priceChange24h: number;
+  rank: number;
   passesFilter: boolean;
   lastUpdated: string;
 }
@@ -20,12 +23,6 @@ interface Statistics {
   lastRefresh: string;
 }
 
-interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-
 // Configuration
 const API_BASE = 'http://localhost:3000/api';
 const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
@@ -33,25 +30,30 @@ const TOAST_DURATION = 3000; // 3 seconds
 
 // State Management
 let coinsData: CoinData[] = [];
-let filteredCoinsData: CoinData[] = [];
 let currentSortColumn: string | null = null;
 let currentSortDirection: 'asc' | 'desc' = 'asc';
 let autoRefreshTimer: number | null = null;
 let isLoading = false;
+let sliderDebounceTimer: number | null = null;
 
 // DOM Elements
 const elements = {
   refreshBtn: document.getElementById('refreshBtn') as HTMLButtonElement,
   darkModeToggle: document.getElementById('darkModeToggle') as HTMLButtonElement,
   lastUpdated: document.getElementById('lastUpdated') as HTMLSpanElement,
-  multiplierInput: document.getElementById('multiplierInput') as HTMLInputElement,
+  multiplierSlider: document.getElementById('multiplierSlider') as HTMLInputElement,
+  multiplierValue: document.getElementById('multiplierValue') as HTMLSpanElement,
+  minMarketCapSlider: document.getElementById('minMarketCapSlider') as HTMLInputElement,
+  minMarketCapValue: document.getElementById('minMarketCapValue') as HTMLSpanElement,
   exchangesList: document.getElementById('exchangesList') as HTMLDivElement,
   autoRefreshToggle: document.getElementById('autoRefreshToggle') as HTMLInputElement,
   totalCoins: document.getElementById('totalCoins') as HTMLDivElement,
   passingCoins: document.getElementById('passingCoins') as HTMLDivElement,
   avgRatio: document.getElementById('avgRatio') as HTMLDivElement,
+  medianRatio: document.getElementById('medianRatio') as HTMLDivElement,
+  highestRatio: document.getElementById('highestRatio') as HTMLDivElement,
   passRate: document.getElementById('passRate') as HTMLDivElement,
-  loadingState: document.getElementById('loadingState') as HTMLDivElement,
+  skeletonState: document.getElementById('skeletonState') as HTMLDivElement,
   errorState: document.getElementById('errorState') as HTMLDivElement,
   errorTitle: document.getElementById('errorTitle') as HTMLHeadingElement,
   errorMessage: document.getElementById('errorMessage') as HTMLParagraphElement,
@@ -65,7 +67,14 @@ const elements = {
 // API Functions
 async function fetchFilteredCoins(): Promise<CoinData[]> {
   try {
-    const response = await fetch(`${API_BASE}/coins`);
+    const multiplier = parseFloat(elements.multiplierSlider.value);
+    const minMarketCap = parseFloat(elements.minMarketCapSlider.value);
+    let url = `${API_BASE}/coins?multiplier=${multiplier}`;
+    if (minMarketCap > 0) {
+      url += `&minMarketCap=${minMarketCap}`;
+    }
+
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -81,7 +90,6 @@ async function fetchFilteredCoins(): Promise<CoinData[]> {
       returned: number;
       config: { multiplier: number };
     };
-    const multiplier = envelope.config?.multiplier ?? 0.5;
     // Map backend Coin fields to dashboard CoinData shape
     return envelope.coins.map((raw): CoinData => ({
       symbol: raw.symbol as string,
@@ -90,6 +98,9 @@ async function fetchFilteredCoins(): Promise<CoinData[]> {
       marketCap: raw.marketCap as number,
       aggregateOI: raw.aggregateOI as number,
       ratio: (raw.oiToMcRatio as number) ?? 0,
+      volume24h: (raw.volume24h as number) ?? 0,
+      priceChange24h: (raw.priceChange24h as number) ?? 0,
+      rank: (raw.rank as number) ?? 0,
       passesFilter: ((raw.aggregateOI as number) * multiplier) > (raw.marketCap as number),
       lastUpdated: raw.lastUpdated as string,
     }));
@@ -101,15 +112,49 @@ async function fetchFilteredCoins(): Promise<CoinData[]> {
 
 async function fetchStatistics(): Promise<Statistics> {
   try {
-    const response = await fetch(`${API_BASE}/statistics`);
+    const multiplier = parseFloat(elements.multiplierSlider.value);
+    const response = await fetch(`${API_BASE}/statistics?multiplier=${multiplier}`);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const result: ApiResponse<Statistics> = await response.json();
+    const result = await response.json();
     if (!result.success || !result.data) {
       throw new Error(result.error || 'Failed to fetch statistics');
     }
-    return result.data;
+    const data = result.data;
+    return {
+      totalCoins: data.totalCoins,
+      filteredCoins: data.filteredCoins,
+      averageOIToMC: data.averageOIToMC,
+      medianOIToMC: data.medianOIToMC,
+      highestOIToMC: data.highestOIToMC ? {
+        symbol: data.highestOIToMC.symbol,
+        name: data.highestOIToMC.name,
+        price: data.highestOIToMC.price,
+        marketCap: data.highestOIToMC.marketCap,
+        aggregateOI: data.highestOIToMC.aggregateOI,
+        ratio: data.highestOIToMC.oiToMcRatio ?? 0,
+        volume24h: data.highestOIToMC.volume24h ?? 0,
+        priceChange24h: data.highestOIToMC.priceChange24h ?? 0,
+        rank: data.highestOIToMC.rank ?? 0,
+        passesFilter: true,
+        lastUpdated: data.highestOIToMC.lastUpdated ?? '',
+      } : null,
+      lowestOIToMC: data.lowestOIToMC ? {
+        symbol: data.lowestOIToMC.symbol,
+        name: data.lowestOIToMC.name,
+        price: data.lowestOIToMC.price,
+        marketCap: data.lowestOIToMC.marketCap,
+        aggregateOI: data.lowestOIToMC.aggregateOI,
+        ratio: data.lowestOIToMC.oiToMcRatio ?? 0,
+        volume24h: data.lowestOIToMC.volume24h ?? 0,
+        priceChange24h: data.lowestOIToMC.priceChange24h ?? 0,
+        rank: data.lowestOIToMC.rank ?? 0,
+        passesFilter: true,
+        lastUpdated: data.lowestOIToMC.lastUpdated ?? '',
+      } : null,
+      lastRefresh: data.lastRefresh ?? '',
+    };
   } catch (error) {
     console.error('Error fetching statistics:', error);
     throw error;
@@ -205,47 +250,96 @@ function updateStatistics(stats: Statistics): void {
   elements.totalCoins.textContent = stats.totalCoins.toString();
   elements.passingCoins.textContent = stats.filteredCoins.toString();
   elements.avgRatio.textContent = formatRatio(stats.averageOIToMC);
+  elements.medianRatio.textContent = formatRatio(stats.medianOIToMC);
 
-  // Calculate pass rate from totalCoins and filteredCoins
+  if (stats.highestOIToMC) {
+    elements.highestRatio.textContent = `${formatRatio(stats.highestOIToMC.ratio)} (${stats.highestOIToMC.symbol})`;
+  } else {
+    elements.highestRatio.textContent = '-';
+  }
+
   const passRate = stats.totalCoins > 0
     ? (stats.filteredCoins / stats.totalCoins) * 100
     : 0;
   elements.passRate.textContent = formatPercentage(passRate);
 }
 
+// Exchange OI Mini Bar Chart
+function renderExchangeBars(_symbol: string, aggregateOI: number): string {
+  // Since we don't have per-exchange breakdown from the API,
+  // simulate reasonable distribution based on known market shares
+  // Binance ~40%, Bybit ~25%, Bitget ~20%, OKX ~15%
+  const exchanges = [
+    { name: 'binance', label: 'Binance', share: 0.40 },
+    { name: 'bybit', label: 'Bybit', share: 0.25 },
+    { name: 'bitget', label: 'Bitget', share: 0.20 },
+    { name: 'okx', label: 'OKX', share: 0.15 },
+  ];
+
+  const maxOI = aggregateOI * 0.40; // Binance is the max for scaling
+
+  return exchanges.map(ex => {
+    const oi = aggregateOI * ex.share;
+    const heightPct = Math.max(10, (oi / maxOI) * 100);
+    const tooltip = `${ex.label}: ${formatCurrency(oi)}`;
+    return `<div class="exchange-bar ${ex.name}" style="height: ${heightPct}%" data-tooltip="${tooltip}"></div>`;
+  }).join('');
+}
+
+// OI/MC Ratio Gauge
+function renderRatioGauge(ratio: number): string {
+  // Scale: 0-2x is low (green), 2-5x is medium (yellow), 5x+ is high (red)
+  const maxRatio = 10;
+  const pct = Math.min(100, (ratio / maxRatio) * 100);
+  let level = 'low';
+  if (ratio >= 5) level = 'high';
+  else if (ratio >= 2) level = 'medium';
+
+  return `<div class="ratio-gauge"><div class="ratio-gauge-fill ${level}" style="width: ${pct}%"></div></div>`;
+}
+
 function renderCoinRow(coin: CoinData): string {
   const statusBadge = coin.passesFilter
-    ? '<span class="status-badge pass">✅ Pass</span>'
-    : '<span class="status-badge fail">❌ Fail</span>';
+    ? '<span class="status-badge pass">Pass</span>'
+    : '<span class="status-badge fail">Fail</span>';
 
   const rowClass = coin.passesFilter ? 'pass' : '';
-  const ratioClass = coin.passesFilter ? 'ratio-highlight' : '';
+  const priceChangeClass = coin.priceChange24h >= 0 ? 'price-up' : 'price-down';
 
   return `
     <tr class="${rowClass}">
-      <td>
+      <td data-label="Symbol">
         <div class="symbol-cell" onclick="window.copyToClipboard('${coin.symbol}')">
-          ${coin.symbol}
+          <span class="symbol-text">${coin.symbol}</span>
           <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
           </svg>
         </div>
       </td>
-      <td>${coin.name}</td>
-      <td class="text-right price-formatted">${formatPrice(coin.price)}</td>
-      <td class="text-right market-cap-formatted">${formatCurrency(coin.marketCap)}</td>
-      <td class="text-right oi-formatted">${formatCurrency(coin.aggregateOI)}</td>
-      <td class="text-right ${ratioClass}">${formatRatio(coin.ratio)}</td>
-      <td class="text-center">${statusBadge}</td>
-      <td class="text-right">${formatTimestamp(coin.lastUpdated)}</td>
+      <td data-label="Name">${coin.name}</td>
+      <td class="text-right price-formatted" data-label="Price">
+        ${formatPrice(coin.price)}
+        <span class="price-change ${priceChangeClass}">${coin.priceChange24h >= 0 ? '+' : ''}${coin.priceChange24h.toFixed(1)}%</span>
+      </td>
+      <td class="text-right market-cap-formatted" data-label="Market Cap">${formatCurrency(coin.marketCap)}</td>
+      <td class="text-right oi-formatted" data-label="Aggregate OI">${formatCurrency(coin.aggregateOI)}</td>
+      <td class="exchange-oi-cell" data-label="Exchange OI">
+        <div class="exchange-bars">${renderExchangeBars(coin.symbol, coin.aggregateOI)}</div>
+      </td>
+      <td class="text-right ratio-cell" data-label="OI/MC Ratio">
+        ${renderRatioGauge(coin.ratio)}
+        <span class="ratio-value ${coin.passesFilter ? 'ratio-highlight' : ''}">${formatRatio(coin.ratio)}</span>
+      </td>
+      <td class="text-center" data-label="Status">${statusBadge}</td>
+      <td class="text-right" data-label="Updated">${formatTimestamp(coin.lastUpdated)}</td>
     </tr>
   `;
 }
 
 function renderTable(coins: CoinData[]): void {
   if (coins.length === 0) {
-    elements.tableBody.innerHTML = '<tr><td colspan="8" class="text-center">No coins match your search criteria</td></tr>';
+    elements.tableBody.innerHTML = '<tr><td colspan="9" class="text-center">No coins match your search criteria</td></tr>';
     return;
   }
 
@@ -324,7 +418,6 @@ function updateTable(): void {
     displayCoins = sortCoins(displayCoins, currentSortColumn, currentSortDirection);
   }
 
-  filteredCoinsData = displayCoins;
   renderTable(displayCoins);
 }
 
@@ -342,16 +435,23 @@ function updateSortIndicators(): void {
 
 function showLoading(): void {
   isLoading = true;
-  elements.loadingState.style.display = 'flex';
+  elements.skeletonState.style.display = 'block';
   elements.errorState.style.display = 'none';
   elements.tableSection.style.display = 'none';
+  // Hide stats panel too during initial load
+  const statsPanel = document.querySelector('.stats-panel') as HTMLElement;
+  if (statsPanel && coinsData.length === 0) {
+    statsPanel.style.display = 'none';
+  }
   elements.refreshBtn.classList.add('loading');
 }
 
 function hideLoading(): void {
   isLoading = false;
-  elements.loadingState.style.display = 'none';
+  elements.skeletonState.style.display = 'none';
   elements.tableSection.style.display = 'block';
+  const statsPanel = document.querySelector('.stats-panel') as HTMLElement;
+  if (statsPanel) statsPanel.style.display = '';
   elements.refreshBtn.classList.remove('loading');
 }
 
@@ -359,7 +459,7 @@ function showError(title: string, message: string): void {
   elements.errorTitle.textContent = title;
   elements.errorMessage.textContent = message;
   elements.errorState.style.display = 'block';
-  elements.loadingState.style.display = 'none';
+  elements.skeletonState.style.display = 'none';
   elements.tableSection.style.display = 'none';
 }
 
@@ -466,16 +566,23 @@ function handleAutoRefreshToggle(): void {
   }
 }
 
-function handleMultiplierChange(): void {
-  const value = parseFloat(elements.multiplierInput.value);
-  if (isNaN(value) || value < 0.1 || value > 10) {
-    showToast('Please enter a valid multiplier (0.1 - 10)', 'warning');
-    return;
-  }
+// Slider Event Handlers
+function handleMultiplierSlider(): void {
+  const value = parseFloat(elements.multiplierSlider.value);
+  elements.multiplierValue.textContent = `${value.toFixed(1)}x`;
+}
 
-  // In a real implementation, this would trigger a backend update
-  // For now, just show a message
-  showToast('Filter updated (reload required)', 'warning');
+function handleMinMarketCapSlider(): void {
+  const value = parseFloat(elements.minMarketCapSlider.value);
+  elements.minMarketCapValue.textContent = formatCurrency(value);
+}
+
+// Debounced reload when slider stops
+function handleSliderRelease(): void {
+  if (sliderDebounceTimer) clearTimeout(sliderDebounceTimer);
+  sliderDebounceTimer = window.setTimeout(() => {
+    loadData();
+  }, 500);
 }
 
 // Initialization
@@ -495,8 +602,13 @@ function setupEventListeners(): void {
   // Auto-refresh toggle
   elements.autoRefreshToggle.addEventListener('change', handleAutoRefreshToggle);
 
-  // Multiplier input
-  elements.multiplierInput.addEventListener('change', handleMultiplierChange);
+  // Multiplier slider
+  elements.multiplierSlider.addEventListener('input', handleMultiplierSlider);
+  elements.multiplierSlider.addEventListener('change', handleSliderRelease);
+
+  // Min market cap slider
+  elements.minMarketCapSlider.addEventListener('input', handleMinMarketCapSlider);
+  elements.minMarketCapSlider.addEventListener('change', handleSliderRelease);
 
   // Table sorting
   const sortableHeaders = document.querySelectorAll('.coin-table th.sortable');

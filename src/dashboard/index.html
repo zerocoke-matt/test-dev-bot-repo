@@ -33,6 +33,7 @@
           </button>
         </div>
       </div>
+      <div class="header-accent"></div>
     </header>
 
     <main class="main-content">
@@ -41,18 +42,33 @@
         <h2 class="section-title">Filter Configuration</h2>
         <div class="filter-controls">
           <div class="filter-item">
-            <label for="multiplierInput">OI to MC Multiplier:</label>
-            <div class="input-group">
+            <label for="multiplierSlider">OI to MC Multiplier:</label>
+            <div class="range-group">
               <input
-                type="number"
-                id="multiplierInput"
+                type="range"
+                id="multiplierSlider"
                 min="0.1"
                 max="10"
                 step="0.1"
                 value="1.5"
                 aria-label="Multiplier threshold"
               >
-              <span class="input-suffix">x</span>
+              <span id="multiplierValue" class="range-value">1.5x</span>
+            </div>
+          </div>
+          <div class="filter-item">
+            <label for="minMarketCapSlider">Min Market Cap:</label>
+            <div class="range-group">
+              <input
+                type="range"
+                id="minMarketCapSlider"
+                min="0"
+                max="100000000000"
+                step="1000000000"
+                value="0"
+                aria-label="Minimum market cap filter"
+              >
+              <span id="minMarketCapValue" class="range-value">$0</span>
             </div>
           </div>
           <div class="filter-item">
@@ -111,10 +127,34 @@
           </div>
         </div>
         <div class="stat-card card">
+          <div class="stat-icon stat-icon-info">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 3v18h18"/>
+              <path d="M7 16l4-8 4 4 4-6"/>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <div class="stat-label">Median OI/MC</div>
+            <div id="medianRatio" class="stat-value">-</div>
+          </div>
+        </div>
+        <div class="stat-card card">
           <div class="stat-icon stat-icon-danger">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
               <polyline points="17 6 23 6 23 12"/>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <div class="stat-label">Highest OI/MC</div>
+            <div id="highestRatio" class="stat-value">-</div>
+          </div>
+        </div>
+        <div class="stat-card card">
+          <div class="stat-icon stat-icon-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M8 12l3 3 5-5"/>
             </svg>
           </div>
           <div class="stat-content">
@@ -123,6 +163,28 @@
           </div>
         </div>
       </section>
+
+      <!-- Skeleton Loading State -->
+      <div id="skeletonState" class="skeleton-state" style="display: none;">
+        <div class="skeleton-stats">
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+        </div>
+        <div class="skeleton-table">
+          <div class="skeleton-row"></div>
+          <div class="skeleton-row"></div>
+          <div class="skeleton-row"></div>
+          <div class="skeleton-row"></div>
+          <div class="skeleton-row"></div>
+          <div class="skeleton-row"></div>
+          <div class="skeleton-row"></div>
+          <div class="skeleton-row"></div>
+        </div>
+      </div>
 
       <!-- Loading State -->
       <div id="loadingState" class="loading-state" style="display: none;">
@@ -180,6 +242,10 @@
                   Aggregate OI
                   <span class="sort-indicator"></span>
                 </th>
+                <th data-sort="exchangeOI" class="sortable text-right">
+                  Exchange OI
+                  <span class="sort-indicator"></span>
+                </th>
                 <th data-sort="ratio" class="sortable text-right">
                   OI/MC Ratio
                   <span class="sort-indicator"></span>
@@ -193,7 +259,7 @@
             </thead>
             <tbody id="tableBody">
               <tr>
-                <td colspan="8" class="text-center">No data available</td>
+                <td colspan="9" class="text-center">No data available</td>
               </tr>
             </tbody>
           </table>
