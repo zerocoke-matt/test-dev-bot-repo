@@ -31,7 +31,7 @@ export class DataFetcherService {
   /**
    * Fetch OI from all exchanges for a single symbol and aggregate
    */
-  async fetchAggregateOI(baseSymbol: string): Promise<{ totalOI: number; exchangeBreakdown: ExchangeOIData[] }> {
+  async fetchAggregateOI(baseSymbol: string): Promise<{ totalOI: number; exchangeBreakdown: ExchangeOIData[] } | null> {
     const exchangeBreakdown: ExchangeOIData[] = [];
     let totalOI = 0;
 
@@ -51,6 +51,13 @@ export class DataFetcherService {
         exchangeBreakdown.push(result.value);
         totalOI += oi;
       }
+    }
+
+    // If no exchange returned valid OI data, signal failure so callers
+    // don't treat a zero aggregate as real data (e.g. during outages).
+    if (exchangeBreakdown.length === 0) {
+      logger.warn(`No valid OI data from any exchange for ${baseSymbol}`);
+      return null;
     }
 
     return { totalOI, exchangeBreakdown };
@@ -100,6 +107,11 @@ export class DataFetcherService {
         this.fetchAggregateOI(symbol),
         this.coingeckoClient.getMarketDataByIds([coingeckoId]),
       ]);
+
+      if (!oiResult) {
+        logger.warn(`No valid OI data for ${symbol}, skipping coin`);
+        return null;
+      }
 
       const mcData = marketData[0];
       if (!mcData) {
@@ -165,6 +177,10 @@ export class DataFetcherService {
       for (const result of oiResults) {
         if (result.status === 'fulfilled') {
           const { symbol, oiResult } = result.value;
+          if (!oiResult) {
+            logger.warn(`Skipping ${symbol} — no valid OI data from any exchange`);
+            continue;
+          }
           const mcData = marketMap.get(symbol);
 
           if (mcData) {

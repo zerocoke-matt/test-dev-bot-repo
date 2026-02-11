@@ -384,6 +384,28 @@ describe('Dashboard UI/UX Features', () => {
     });
   });
 
+  // ─── Symbol Cell Rendering (JS-context injection prevention) ──────
+  describe('Symbol cell rendering', () => {
+    function renderSymbolCell(symbol: string): string {
+      const safeSymbol = escapeHtml(symbol);
+      return `<div class="symbol-cell" data-symbol="${safeSymbol}"><span class="symbol-text">${safeSymbol}</span></div>`;
+    }
+
+    it('should use data-symbol attribute instead of inline onclick', () => {
+      const html = renderSymbolCell('BTC');
+      expect(html).toContain('data-symbol="BTC"');
+      expect(html).not.toContain('onclick');
+    });
+
+    it('should safely handle symbol with JS-breaking characters', () => {
+      // A symbol like O'COIN would break an inline onclick='copyToClipboard('O'COIN')'
+      // With data-attribute approach, escapeHtml handles HTML context correctly
+      const html = renderSymbolCell("O'COIN");
+      expect(html).toContain('data-symbol="O&#039;COIN"');
+      expect(html).not.toContain('onclick');
+    });
+  });
+
   // ─── Pass Rate Calculation Tests ─────────────────────────────────
   describe('Pass Rate Calculation', () => {
     function calculatePassRate(totalCoins: number, filteredCoins: number): number {

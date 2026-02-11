@@ -27,11 +27,10 @@ interface Statistics {
 // API base URL — configurable for split frontend/backend deployments.
 // - Set VITE_API_BASE at build time for custom backends (e.g. VITE_API_BASE=http://host:3000/api)
 // - In Vite dev mode (/api is proxied to localhost:3000 via vite.config.ts)
-// - In production behind a reverse proxy, '/api' works as-is
-// - For static serving without a proxy (npm run serve), defaults to the
-//   backend origin so data requests reach the API server out of the box.
+// - In production, falls back to same-origin '/api' so the dashboard
+//   works behind any reverse proxy or on any host without extra config.
 const _env = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
-const API_BASE: string = _env?.VITE_API_BASE || (_env?.DEV ? '/api' : 'http://localhost:3000/api');
+const API_BASE: string = _env?.VITE_API_BASE || '/api';
 const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const TOAST_DURATION = 3000; // 3 seconds
 
@@ -343,7 +342,7 @@ function renderCoinRow(coin: CoinData): string {
   return `
     <tr class="${rowClass}">
       <td data-label="Symbol">
-        <div class="symbol-cell" onclick="window.copyToClipboard('${safeSymbol}')">
+        <div class="symbol-cell" data-symbol="${safeSymbol}">
           <span class="symbol-text">${safeSymbol}</span>
           <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
@@ -691,8 +690,14 @@ function initialize(): void {
   console.log('Dashboard initialized successfully');
 }
 
-// Make copyToClipboard available globally for inline onclick handlers
-(window as any).copyToClipboard = copyToClipboard;
+// Use event delegation for symbol copy clicks instead of inline onclick
+// to avoid JS-context injection via API-sourced symbol values.
+document.addEventListener('click', (event) => {
+  const cell = (event.target as HTMLElement).closest('.symbol-cell') as HTMLElement | null;
+  if (cell && cell.dataset.symbol) {
+    copyToClipboard(cell.dataset.symbol);
+  }
+});
 
 // Start the application
 if (document.readyState === 'loading') {

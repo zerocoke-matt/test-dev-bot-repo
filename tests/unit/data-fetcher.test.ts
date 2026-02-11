@@ -63,12 +63,13 @@ describe('DataFetcherService', () => {
 
       const result = await dataFetcher.fetchAggregateOI('BTC');
 
-      expect(result.totalOI).toBe(800000000 + 500000000 + 400000000 + 300000000);
-      expect(result.exchangeBreakdown).toHaveLength(4);
-      expect(result.exchangeBreakdown[0].exchange).toBe('binance');
-      expect(result.exchangeBreakdown[1].exchange).toBe('bybit');
-      expect(result.exchangeBreakdown[2].exchange).toBe('bitget');
-      expect(result.exchangeBreakdown[3].exchange).toBe('okx');
+      expect(result).not.toBeNull();
+      expect(result!.totalOI).toBe(800000000 + 500000000 + 400000000 + 300000000);
+      expect(result!.exchangeBreakdown).toHaveLength(4);
+      expect(result!.exchangeBreakdown[0].exchange).toBe('binance');
+      expect(result!.exchangeBreakdown[1].exchange).toBe('bybit');
+      expect(result!.exchangeBreakdown[2].exchange).toBe('bitget');
+      expect(result!.exchangeBreakdown[3].exchange).toBe('okx');
 
       // Verify each exchange was called
       mockExchangeClients.forEach((client) => {
@@ -93,19 +94,39 @@ describe('DataFetcherService', () => {
 
       const result = await dataFetcher.fetchAggregateOI('BTC');
 
-      expect(result.totalOI).toBe(800000000 + 300000000);
-      expect(result.exchangeBreakdown).toHaveLength(2);
+      expect(result).not.toBeNull();
+      expect(result!.totalOI).toBe(800000000 + 300000000);
+      expect(result!.exchangeBreakdown).toHaveLength(2);
     });
 
-    it('should return zero OI when all exchanges fail', async () => {
+    it('should return null when all exchanges fail', async () => {
       mockExchangeClients.forEach((client) => {
         client.getOpenInterest.mockRejectedValue(new Error('Failed'));
       });
 
       const result = await dataFetcher.fetchAggregateOI('BTC');
 
-      expect(result.totalOI).toBe(0);
-      expect(result.exchangeBreakdown).toHaveLength(0);
+      expect(result).toBeNull();
+    });
+
+    it('should return null when all OI values are non-finite', async () => {
+      // Every exchange returns non-finite OI — no valid data at all
+      mockExchangeClients[0].getOpenInterest.mockResolvedValue(
+        createMockExchangeOIData('BTC', 'binance', { openInterest: NaN })
+      );
+      mockExchangeClients[1].getOpenInterest.mockResolvedValue(
+        createMockExchangeOIData('BTC', 'bybit', { openInterest: Infinity })
+      );
+      mockExchangeClients[2].getOpenInterest.mockResolvedValue(
+        createMockExchangeOIData('BTC', 'bitget', { openInterest: -Infinity })
+      );
+      mockExchangeClients[3].getOpenInterest.mockResolvedValue(
+        createMockExchangeOIData('BTC', 'okx', { openInterest: NaN })
+      );
+
+      const result = await dataFetcher.fetchAggregateOI('BTC');
+
+      expect(result).toBeNull();
     });
 
     it('should skip non-finite OI values from exchanges', async () => {
@@ -126,8 +147,9 @@ describe('DataFetcherService', () => {
       const result = await dataFetcher.fetchAggregateOI('BTC');
 
       // Only the two finite values should be counted
-      expect(result.totalOI).toBe(500000000 + 300000000);
-      expect(result.exchangeBreakdown).toHaveLength(2);
+      expect(result).not.toBeNull();
+      expect(result!.totalOI).toBe(500000000 + 300000000);
+      expect(result!.exchangeBreakdown).toHaveLength(2);
     });
 
     it('should handle single exchange succeeding', async () => {
@@ -140,9 +162,10 @@ describe('DataFetcherService', () => {
 
       const result = await dataFetcher.fetchAggregateOI('ETH');
 
-      expect(result.totalOI).toBe(1000000000);
-      expect(result.exchangeBreakdown).toHaveLength(1);
-      expect(result.exchangeBreakdown[0].exchange).toBe('binance');
+      expect(result).not.toBeNull();
+      expect(result!.totalOI).toBe(1000000000);
+      expect(result!.exchangeBreakdown).toHaveLength(1);
+      expect(result!.exchangeBreakdown[0].exchange).toBe('binance');
     });
   });
 
