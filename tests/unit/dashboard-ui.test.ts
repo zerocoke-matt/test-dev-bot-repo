@@ -93,6 +93,15 @@ describe('Dashboard UI/UX Features', () => {
     );
   }
 
+  function escapeHtml(unsafe: string): string {
+    return unsafe
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   // ─── Test Data ────────────────────────────────────────────────────
   const mockCoins: CoinData[] = [
     {
@@ -347,6 +356,31 @@ describe('Dashboard UI/UX Features', () => {
 
     it('should return empty array for no matches', () => {
       expect(filterCoins(mockCoins, 'xyz')).toHaveLength(0);
+    });
+  });
+
+  // ─── escapeHtml Tests ──────────────────────────────────────────────
+  describe('escapeHtml', () => {
+    it('should escape angle brackets', () => {
+      expect(escapeHtml('<script>alert("xss")</script>')).toBe(
+        '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'
+      );
+    });
+
+    it('should escape ampersands', () => {
+      expect(escapeHtml('AT&T')).toBe('AT&amp;T');
+    });
+
+    it('should escape quotes', () => {
+      expect(escapeHtml('"hello" & \'world\'')).toBe(
+        '&quot;hello&quot; &amp; &#039;world&#039;'
+      );
+    });
+
+    it('should leave safe strings unchanged', () => {
+      expect(escapeHtml('Bitcoin')).toBe('Bitcoin');
+      expect(escapeHtml('BTC')).toBe('BTC');
+      expect(escapeHtml('')).toBe('');
     });
   });
 

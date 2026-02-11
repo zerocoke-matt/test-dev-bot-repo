@@ -172,6 +172,38 @@ describe('CacheService', () => {
 
       expect(stats.keys).toBe(0);
     });
+
+    it('should invalidate in-flight entries so concurrent callers do not join stale promise', async () => {
+      let resolveFactory!: (value: string) => void;
+      const factory = jest.fn().mockImplementation(() => {
+        return new Promise<string>((resolve) => {
+          resolveFactory = resolve;
+        });
+      });
+
+      // Start a getOrSet that hasn't resolved yet
+      const promise1 = cacheService.getOrSet('inflight-key', factory);
+
+      // Clear while the factory is still in progress — this drops the
+      // in-flight entry so new callers won't join the stale promise.
+      cacheService.clear();
+
+      // A second caller after clear() should start its own factory
+      // (not join the old in-flight promise that was cleared).
+      const factory2 = jest.fn().mockResolvedValue('fresh-value');
+      const promise2 = cacheService.getOrSet('inflight-key', factory2);
+
+      // factory2 should have been invoked because in-flight was cleared
+      expect(factory2).toHaveBeenCalledTimes(1);
+
+      // Resolve the original factory
+      resolveFactory('stale-value');
+      const result1 = await promise1;
+      const result2 = await promise2;
+
+      expect(result1).toBe('stale-value');
+      expect(result2).toBe('fresh-value');
+    });
   });
 
   describe('getStats', () => {

@@ -223,6 +223,15 @@ function formatTimestamp(timestamp: string): string {
   }
 }
 
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function showToast(message: string, type: 'success' | 'error' | 'warning' = 'success'): void {
   elements.toast.textContent = message;
   elements.toast.className = `toast ${type} show`;
@@ -319,18 +328,23 @@ function renderCoinRow(coin: CoinData): string {
   const rowClass = coin.passesFilter ? 'pass' : '';
   const priceChangeClass = coin.priceChange24h >= 0 ? 'price-up' : 'price-down';
 
+  // Escape all API-sourced string fields to prevent XSS
+  const safeSymbol = escapeHtml(coin.symbol);
+  const safeName = escapeHtml(coin.name);
+  const safeLastUpdated = escapeHtml(coin.lastUpdated);
+
   return `
     <tr class="${rowClass}">
       <td data-label="Symbol">
-        <div class="symbol-cell" onclick="window.copyToClipboard('${coin.symbol}')">
-          <span class="symbol-text">${coin.symbol}</span>
+        <div class="symbol-cell" onclick="window.copyToClipboard('${safeSymbol}')">
+          <span class="symbol-text">${safeSymbol}</span>
           <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
           </svg>
         </div>
       </td>
-      <td data-label="Name">${coin.name}</td>
+      <td data-label="Name">${safeName}</td>
       <td class="text-right price-formatted" data-label="Price">
         ${formatPrice(coin.price)}
         <span class="price-change ${priceChangeClass}">${coin.priceChange24h >= 0 ? '+' : ''}${coin.priceChange24h.toFixed(1)}%</span>
@@ -338,14 +352,14 @@ function renderCoinRow(coin: CoinData): string {
       <td class="text-right market-cap-formatted" data-label="Market Cap">${formatCurrency(coin.marketCap)}</td>
       <td class="text-right oi-formatted" data-label="Aggregate OI">${formatCurrency(coin.aggregateOI)}</td>
       <td class="exchange-oi-cell" data-label="Exchange OI">
-        <div class="exchange-bars">${renderExchangeBars(coin.symbol, coin.aggregateOI)}</div>
+        <div class="exchange-bars">${renderExchangeBars(safeSymbol, coin.aggregateOI)}</div>
       </td>
       <td class="text-right ratio-cell" data-label="OI/MC Ratio">
         ${renderRatioGauge(coin.ratio)}
         <span class="ratio-value ${coin.passesFilter ? 'ratio-highlight' : ''}">${formatRatio(coin.ratio)}</span>
       </td>
       <td class="text-center" data-label="Status">${statusBadge}</td>
-      <td class="text-right" data-label="Updated">${formatTimestamp(coin.lastUpdated)}</td>
+      <td class="text-right" data-label="Updated">${formatTimestamp(safeLastUpdated)}</td>
     </tr>
   `;
 }

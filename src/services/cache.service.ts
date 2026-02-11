@@ -83,6 +83,9 @@ export class CacheService {
    */
   clear(): void {
     this.cache.flushAll();
+    // Drop in-flight computations so pre-flush factory() results
+    // don't repopulate the cache with stale data after a refresh.
+    this.inFlight.clear();
     logger.info('Cache cleared');
   }
 
