@@ -87,6 +87,26 @@ describe('Exchange Clients', () => {
       await expect(binanceClient.getOpenInterest('BTC')).rejects.toThrow('Network error');
     });
 
+    it('should throw error when mark price is missing', async () => {
+      mockHttpClient.get
+        .mockResolvedValueOnce({
+          data: { symbol: 'BTCUSDT', openInterest: '5000', time: 1700000000000 },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+        })
+        .mockResolvedValueOnce({
+          data: { markPrice: '' },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+        });
+
+      await expect(binanceClient.getOpenInterest('BTC')).rejects.toThrow(
+        'No mark price data from Binance for BTC'
+      );
+    });
+
     it('should use Date.now() when time is not in response', async () => {
       const now = Date.now();
       jest.spyOn(Date, 'now').mockReturnValue(now);
@@ -211,6 +231,38 @@ describe('Exchange Clients', () => {
       );
     });
 
+    it('should throw error when mark price is missing from Bybit ticker', async () => {
+      mockHttpClient.get
+        .mockResolvedValueOnce({
+          data: {
+            retCode: 0,
+            retMsg: 'OK',
+            result: {
+              category: 'linear',
+              list: [
+                { symbol: 'BTCUSDT', openInterest: '3000', timestamp: '1700000000000' },
+              ],
+            },
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+        })
+        .mockResolvedValueOnce({
+          data: {
+            retCode: 0,
+            result: { list: [] },
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+        });
+
+      await expect(bybitClient.getOpenInterest('BTC')).rejects.toThrow(
+        'No mark price data from Bybit for BTC'
+      );
+    });
+
     it('should throw error for unknown symbol', async () => {
       await expect(bybitClient.getOpenInterest('UNKNOWNCOIN')).rejects.toThrow(
         'No Bybit symbol mapping for UNKNOWNCOIN'
@@ -292,6 +344,33 @@ describe('Exchange Clients', () => {
 
       await expect(bitgetClient.getOpenInterest('BTC')).rejects.toThrow(
         'Bitget API error: Unauthorized'
+      );
+    });
+
+    it('should throw error when mark price is missing from Bitget ticker', async () => {
+      mockHttpClient.get
+        .mockResolvedValueOnce({
+          data: {
+            code: '00000',
+            msg: 'success',
+            data: { symbol: 'BTCUSDT', amount: '2500' },
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+        })
+        .mockResolvedValueOnce({
+          data: {
+            code: '00000',
+            data: [],
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+        });
+
+      await expect(bitgetClient.getOpenInterest('BTC')).rejects.toThrow(
+        'No mark price data from Bitget for BTC'
       );
     });
 
@@ -402,6 +481,41 @@ describe('Exchange Clients', () => {
 
       await expect(okxClient.getOpenInterest('BTC')).rejects.toThrow(
         'No OI data from OKX for BTC'
+      );
+    });
+
+    it('should throw error when mark price is missing from OKX', async () => {
+      mockHttpClient.get
+        .mockResolvedValueOnce({
+          data: {
+            code: '0',
+            msg: '',
+            data: [
+              {
+                instId: 'BTC-USDT-SWAP',
+                instType: 'SWAP',
+                oi: '1500',
+                oiCcy: 'BTC',
+                ts: '1700000000000',
+              },
+            ],
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+        })
+        .mockResolvedValueOnce({
+          data: {
+            code: '0',
+            data: [],
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+        });
+
+      await expect(okxClient.getOpenInterest('BTC')).rejects.toThrow(
+        'No mark price data from OKX for BTC'
       );
     });
 

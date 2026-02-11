@@ -74,8 +74,25 @@ async function fetchFilteredCoins(): Promise<CoinData[]> {
       throw new Error(result.error || 'Failed to fetch coins data');
     }
     // Backend wraps coins in { data: { coins, total, filtered, ... } }
-    const envelope = result.data as { coins: CoinData[]; total: number; filtered: number; returned: number; config: unknown };
-    return envelope.coins;
+    const envelope = result.data as {
+      coins: Array<Record<string, unknown>>;
+      total: number;
+      filtered: number;
+      returned: number;
+      config: { multiplier: number };
+    };
+    const multiplier = envelope.config?.multiplier ?? 0.5;
+    // Map backend Coin fields to dashboard CoinData shape
+    return envelope.coins.map((raw): CoinData => ({
+      symbol: raw.symbol as string,
+      name: raw.name as string,
+      price: raw.price as number,
+      marketCap: raw.marketCap as number,
+      aggregateOI: raw.aggregateOI as number,
+      ratio: (raw.oiToMcRatio as number) ?? 0,
+      passesFilter: ((raw.aggregateOI as number) * multiplier) > (raw.marketCap as number),
+      lastUpdated: raw.lastUpdated as string,
+    }));
   } catch (error) {
     console.error('Error fetching coins:', error);
     throw error;

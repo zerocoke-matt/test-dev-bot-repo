@@ -65,7 +65,14 @@ export class OKXClient extends BaseExchangeClient {
         params: { instType: 'SWAP', instId: exchangeSymbol },
       });
 
-      const markPrice = parseFloat(tickerResponse.data.data?.[0]?.markPx || '0');
+      const markPxStr = tickerResponse.data.data?.[0]?.markPx;
+      if (!markPxStr) {
+        throw new Error(`No mark price data from OKX for ${baseSymbol}`);
+      }
+      const markPrice = parseFloat(markPxStr);
+      if (isNaN(markPrice) || markPrice <= 0) {
+        throw new Error(`Invalid mark price from OKX for ${baseSymbol}: ${markPxStr}`);
+      }
       const oiUsd = oiCoins * markPrice;
 
       logger.debug(`OKX OI for ${baseSymbol}: $${oiUsd.toFixed(0)}`);

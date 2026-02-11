@@ -69,7 +69,14 @@ export class BybitClient extends BaseExchangeClient {
         params: { category: 'linear', symbol: exchangeSymbol },
       });
 
-      const markPrice = parseFloat(tickerResponse.data.result.list[0]?.markPrice || '0');
+      const markPriceStr = tickerResponse.data.result.list?.[0]?.markPrice;
+      if (!markPriceStr) {
+        throw new Error(`No mark price data from Bybit for ${baseSymbol}`);
+      }
+      const markPrice = parseFloat(markPriceStr);
+      if (isNaN(markPrice) || markPrice <= 0) {
+        throw new Error(`Invalid mark price from Bybit for ${baseSymbol}: ${markPriceStr}`);
+      }
       const oiUsd = oiValue * markPrice;
 
       logger.debug(`Bybit OI for ${baseSymbol}: $${oiUsd.toFixed(0)}`);

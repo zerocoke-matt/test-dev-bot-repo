@@ -57,7 +57,14 @@ export class BitgetClient extends BaseExchangeClient {
         params: { productType: 'USDT-FUTURES', symbol: exchangeSymbol },
       });
 
-      const markPrice = parseFloat(tickerResponse.data.data?.[0]?.markPrice || '0');
+      const markPriceStr = tickerResponse.data.data?.[0]?.markPrice;
+      if (!markPriceStr) {
+        throw new Error(`No mark price data from Bitget for ${baseSymbol}`);
+      }
+      const markPrice = parseFloat(markPriceStr);
+      if (isNaN(markPrice) || markPrice <= 0) {
+        throw new Error(`Invalid mark price from Bitget for ${baseSymbol}: ${markPriceStr}`);
+      }
       const oiUsd = oiAmount * markPrice;
 
       logger.debug(`Bitget OI for ${baseSymbol}: $${oiUsd.toFixed(0)}`);

@@ -36,6 +36,8 @@ export abstract class BaseExchangeClient implements IExchangeClient {
   private requestTimes: number[] = [];
   private maxRequestsPerWindow: number;
   private windowMs: number;
+  /** Mutex queue to serialize rate-limit checks and prevent burst concurrency */
+  private rateLimitQueue: Promise<void> = Promise.resolve();
 
   constructor(
     baseURL: string,
@@ -49,9 +51,18 @@ export abstract class BaseExchangeClient implements IExchangeClient {
   }
 
   /**
-   * Rate limit: wait if too many requests in the window
+   * Rate limit: serialized through a mutex queue so concurrent callers
+   * wait in line rather than all bursting through at once.
    */
-  protected async rateLimit(): Promise<void> {
+  protected rateLimit(): Promise<void> {
+    this.rateLimitQueue = this.rateLimitQueue.then(() => this.rateLimitCheck());
+    return this.rateLimitQueue;
+  }
+
+  /**
+   * Internal rate-limit check — only one caller runs this at a time.
+   */
+  private async rateLimitCheck(): Promise<void> {
     const now = Date.now();
     this.requestTimes = this.requestTimes.filter(t => now - t < this.windowMs);
 

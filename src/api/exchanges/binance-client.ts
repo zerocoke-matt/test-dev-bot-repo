@@ -42,7 +42,14 @@ export class BinanceClient extends BaseExchangeClient {
         '/fapi/v1/premiumIndex',
         { params: { symbol: exchangeSymbol } }
       );
-      const markPrice = parseFloat(priceResponse.data.markPrice);
+      const markPriceStr = priceResponse.data.markPrice;
+      if (!markPriceStr) {
+        throw new Error(`No mark price data from Binance for ${baseSymbol}`);
+      }
+      const markPrice = parseFloat(markPriceStr);
+      if (isNaN(markPrice) || markPrice <= 0) {
+        throw new Error(`Invalid mark price from Binance for ${baseSymbol}: ${markPriceStr}`);
+      }
       const oiUsd = oiAmount * markPrice;
 
       logger.debug(`Binance OI for ${baseSymbol}: $${oiUsd.toFixed(0)}`);
