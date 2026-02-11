@@ -40,6 +40,7 @@ let currentSortColumn: string | null = null;
 let currentSortDirection: 'asc' | 'desc' = 'asc';
 let autoRefreshTimer: number | null = null;
 let isLoading = false;
+let pendingReload = false;
 let sliderDebounceTimer: number | null = null;
 
 // DOM Elements
@@ -257,9 +258,12 @@ function copyToClipboard(text: string): void {
 }
 
 // UI Update Functions
-function updateLastUpdated(): void {
-  const now = new Date();
-  elements.lastUpdated.textContent = now.toLocaleTimeString('en-US', {
+function updateLastUpdated(serverTimestamp?: string): void {
+  // Prefer the backend-provided refresh timestamp so the label reflects
+  // when exchange/CoinGecko data was actually fetched, not when the
+  // client polled.  Fall back to client time only if unavailable.
+  const date = serverTimestamp ? new Date(serverTimestamp) : new Date();
+  elements.lastUpdated.textContent = date.toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
@@ -498,6 +502,9 @@ function showError(title: string, message: string): void {
 // Data Loading
 async function loadData(forceRefresh: boolean = false): Promise<void> {
   if (isLoading) {
+    // A reload was requested while already fetching — queue it so the UI
+    // is eventually consistent with the latest filter/slider state.
+    pendingReload = true;
     return;
   }
 
@@ -523,7 +530,7 @@ async function loadData(forceRefresh: boolean = false): Promise<void> {
     coinsData = coins;
     updateTable();
     updateStatistics(stats);
-    updateLastUpdated();
+    updateLastUpdated(stats.lastRefresh);
     hideLoading();
 
     showToast('Data refreshed successfully', 'success');
@@ -534,6 +541,13 @@ async function loadData(forceRefresh: boolean = false): Promise<void> {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     showError('Failed to Load Data', errorMessage);
     showToast('Failed to refresh data', 'error');
+  } finally {
+    // If a reload was queued while we were busy, fire it now so the UI
+    // catches up with the latest filter state.
+    if (pendingReload) {
+      pendingReload = false;
+      loadData();
+    }
   }
 }
 
