@@ -16,7 +16,7 @@ import {
   SortOrder,
 } from '../types/domain.types';
 import { logger } from '../logger/logger';
-import { CACHE_KEYS, DEFAULTS } from '../config/constants';
+import { CACHE_KEYS, DEFAULTS, VALIDATION } from '../config/constants';
 
 export class AggregatorService {
   private lastRefreshTime: Date | null = null;
@@ -82,12 +82,14 @@ export class AggregatorService {
       result.coins = this.filterService.sortCoins(result.coins, sortField, sortOrder);
     }
 
-    // Paginate coins — guard against NaN and negative values
+    // Paginate coins — guard against NaN and negative values.
+    // Use VALIDATION.MAX_LIMIT (1000) as the hard cap so clients can request
+    // larger pages up to the configured maximum, defaulting to PAGE_LIMIT (100).
     const rawLimit = params.limit ?? DEFAULTS.PAGE_LIMIT;
     const rawOffset = params.offset ?? DEFAULTS.PAGE_OFFSET;
     const limit = Math.min(
       Math.max(0, isNaN(rawLimit) ? DEFAULTS.PAGE_LIMIT : rawLimit),
-      DEFAULTS.PAGE_LIMIT
+      VALIDATION.MAX_LIMIT
     );
     const offset = Math.max(0, isNaN(rawOffset) ? DEFAULTS.PAGE_OFFSET : rawOffset);
     result.coins = this.filterService.paginateCoins(result.coins, limit, offset);

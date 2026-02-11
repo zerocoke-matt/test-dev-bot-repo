@@ -24,9 +24,14 @@ interface Statistics {
 }
 
 // Configuration
-// Use VITE_API_BASE env var for split frontend/backend deployments,
-// falling back to '/api' which works behind a reverse proxy or same-origin.
-const API_BASE = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE) || '/api';
+// API base URL — configurable for split frontend/backend deployments.
+// - Set VITE_API_BASE at build time for custom backends (e.g. VITE_API_BASE=http://host:3000/api)
+// - In Vite dev mode (/api is proxied to localhost:3000 via vite.config.ts)
+// - In production behind a reverse proxy, '/api' works as-is
+// - For static serving without a proxy (npm run serve), defaults to the
+//   backend origin so data requests reach the API server out of the box.
+const _env = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
+const API_BASE: string = _env?.VITE_API_BASE || (_env?.DEV ? '/api' : 'http://localhost:3000/api');
 const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const TOAST_DURATION = 3000; // 3 seconds
 
