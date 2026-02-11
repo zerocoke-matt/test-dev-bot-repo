@@ -241,6 +241,36 @@ describe('API Endpoints', () => {
       expect(response.body.error.code).toBe('VALIDATION_ERROR');
       expect(response.body.error.message).toContain('offset');
     });
+
+    it('should return 400 for invalid filter configuration', async () => {
+      setupExchangeOIForSymbols({ BTC: 5000000000 });
+
+      mockCoinGeckoClient.getMarketDataByIds.mockResolvedValue([
+        createMockCoinGeckoMarketData({ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' }),
+      ]);
+
+      // multiplier=99 is out of range (max 10)
+      const response = await request(app).get('/api/coins?multiplier=99');
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('VALIDATION_ERROR');
+      expect(response.body.error.message).toContain('Invalid filter configuration');
+    });
+
+    it('should handle negative limit gracefully', async () => {
+      setupExchangeOIForSymbols({ BTC: 5000000000 });
+
+      mockCoinGeckoClient.getMarketDataByIds.mockResolvedValue([
+        createMockCoinGeckoMarketData({ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' }),
+      ]);
+
+      const response = await request(app).get('/api/coins?limit=-1');
+
+      // Should not crash; negative limit is clamped to 0
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+    });
   });
 
   describe('GET /api/coins/:symbol', () => {
@@ -359,6 +389,21 @@ describe('API Endpoints', () => {
 
       expect(response.status).toBe(500);
       expect(response.body.success).toBe(false);
+    });
+
+    it('should return 400 for invalid filter configuration', async () => {
+      setupExchangeOIForSymbols({ BTC: 5000000000 });
+
+      mockCoinGeckoClient.getMarketDataByIds.mockResolvedValue([
+        createMockCoinGeckoMarketData({ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' }),
+      ]);
+
+      // multiplier=99 is out of range (max 10)
+      const response = await request(app).get('/api/statistics?multiplier=99');
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('VALIDATION_ERROR');
     });
   });
 

@@ -105,10 +105,16 @@ export function createApiRouter(aggregator: AggregatorService): Router {
     } catch (error) {
       logger.error('Failed to get filtered coins', error);
       const message = error instanceof Error ? error.message : 'Failed to fetch coins';
-      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+
+      // Filter validation errors are client mistakes → 400, not 500
+      const isValidationError = message.startsWith('Invalid filter configuration');
+      const status = isValidationError ? HTTP_STATUS.BAD_REQUEST : HTTP_STATUS.INTERNAL_SERVER_ERROR;
+      const code = isValidationError ? ERROR_CODES.VALIDATION_ERROR : ERROR_CODES.INTERNAL_ERROR;
+
+      res.status(status).json({
         success: false,
         error: {
-          code: ERROR_CODES.INTERNAL_ERROR,
+          code,
           message,
         },
       });
@@ -195,10 +201,16 @@ export function createApiRouter(aggregator: AggregatorService): Router {
     } catch (error) {
       logger.error('Failed to get statistics', error);
       const message = error instanceof Error ? error.message : 'Failed to calculate statistics';
-      res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+
+      // Filter validation errors are client mistakes → 400, not 500
+      const isValidationError = message.startsWith('Invalid filter configuration');
+      const status = isValidationError ? HTTP_STATUS.BAD_REQUEST : HTTP_STATUS.INTERNAL_SERVER_ERROR;
+      const code = isValidationError ? ERROR_CODES.VALIDATION_ERROR : ERROR_CODES.INTERNAL_ERROR;
+
+      res.status(status).json({
         success: false,
         error: {
-          code: ERROR_CODES.INTERNAL_ERROR,
+          code,
           message,
         },
       });

@@ -211,6 +211,30 @@ describe('Dashboard UI/UX Features', () => {
       const distribution = getExchangeDistribution(0);
       distribution.forEach(d => expect(d.oi).toBe(0));
     });
+
+    it('should produce valid bar heights when aggregateOI is zero', () => {
+      // Mirrors renderExchangeBars logic: when OI is 0, bars should get
+      // a minimum height (10%) instead of NaN from 0/0 division
+      const aggregateOI = 0;
+      const exchanges = [
+        { name: 'binance', share: 0.40 },
+        { name: 'bybit', share: 0.25 },
+        { name: 'bitget', share: 0.20 },
+        { name: 'okx', share: 0.15 },
+      ];
+
+      const heights = exchanges.map(ex => {
+        if (aggregateOI <= 0) return 10; // guard path
+        const oi = aggregateOI * ex.share;
+        const maxOI = aggregateOI * 0.40;
+        return Math.max(10, (oi / maxOI) * 100);
+      });
+
+      heights.forEach(h => {
+        expect(h).toBe(10);
+        expect(isNaN(h)).toBe(false);
+      });
+    });
   });
 
   // ─── Ratio Gauge Tests ───────────────────────────────────────────

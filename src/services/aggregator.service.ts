@@ -82,14 +82,14 @@ export class AggregatorService {
       result.coins = this.filterService.sortCoins(result.coins, sortField, sortOrder);
     }
 
-    // Paginate coins — guard against NaN propagating from callers
+    // Paginate coins — guard against NaN and negative values
     const rawLimit = params.limit ?? DEFAULTS.PAGE_LIMIT;
     const rawOffset = params.offset ?? DEFAULTS.PAGE_OFFSET;
     const limit = Math.min(
-      isNaN(rawLimit) ? DEFAULTS.PAGE_LIMIT : rawLimit,
+      Math.max(0, isNaN(rawLimit) ? DEFAULTS.PAGE_LIMIT : rawLimit),
       DEFAULTS.PAGE_LIMIT
     );
-    const offset = isNaN(rawOffset) ? DEFAULTS.PAGE_OFFSET : rawOffset;
+    const offset = Math.max(0, isNaN(rawOffset) ? DEFAULTS.PAGE_OFFSET : rawOffset);
     result.coins = this.filterService.paginateCoins(result.coins, limit, offset);
 
     return result;

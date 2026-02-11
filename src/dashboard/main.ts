@@ -281,6 +281,14 @@ function renderExchangeBars(_symbol: string, aggregateOI: number): string {
     { name: 'okx', label: 'OKX', share: 0.15 },
   ];
 
+  // Guard against zero OI to avoid NaN from division by zero
+  if (aggregateOI <= 0) {
+    return exchanges.map(ex => {
+      const tooltip = `${ex.label}: ${formatCurrency(0)}`;
+      return `<div class="exchange-bar ${ex.name}" style="height: 10%" data-tooltip="${tooltip}"></div>`;
+    }).join('');
+  }
+
   const maxOI = aggregateOI * 0.40; // Binance is the max for scaling
 
   return exchanges.map(ex => {
