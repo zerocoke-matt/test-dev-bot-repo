@@ -41,8 +41,15 @@ export class DataFetcherService {
 
     for (const result of results) {
       if (result.status === 'fulfilled') {
+        const oi = result.value.openInterest;
+        // Guard against NaN/Infinity from malformed exchange responses
+        // so a single bad payload doesn't poison the entire coin's totals
+        if (!Number.isFinite(oi)) {
+          logger.warn(`Non-finite OI (${oi}) from ${result.value.exchange} for ${baseSymbol}, skipping`);
+          continue;
+        }
         exchangeBreakdown.push(result.value);
-        totalOI += result.value.openInterest;
+        totalOI += oi;
       }
     }
 

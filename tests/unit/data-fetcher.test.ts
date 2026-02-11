@@ -108,6 +108,28 @@ describe('DataFetcherService', () => {
       expect(result.exchangeBreakdown).toHaveLength(0);
     });
 
+    it('should skip non-finite OI values from exchanges', async () => {
+      // Binance returns valid OI, Bybit returns NaN, Bitget returns Infinity
+      mockExchangeClients[0].getOpenInterest.mockResolvedValue(
+        createMockExchangeOIData('BTC', 'binance', { openInterest: 500000000 })
+      );
+      mockExchangeClients[1].getOpenInterest.mockResolvedValue(
+        createMockExchangeOIData('BTC', 'bybit', { openInterest: NaN })
+      );
+      mockExchangeClients[2].getOpenInterest.mockResolvedValue(
+        createMockExchangeOIData('BTC', 'bitget', { openInterest: Infinity })
+      );
+      mockExchangeClients[3].getOpenInterest.mockResolvedValue(
+        createMockExchangeOIData('BTC', 'okx', { openInterest: 300000000 })
+      );
+
+      const result = await dataFetcher.fetchAggregateOI('BTC');
+
+      // Only the two finite values should be counted
+      expect(result.totalOI).toBe(500000000 + 300000000);
+      expect(result.exchangeBreakdown).toHaveLength(2);
+    });
+
     it('should handle single exchange succeeding', async () => {
       mockExchangeClients[0].getOpenInterest.mockResolvedValue(
         createMockExchangeOIData('ETH', 'binance', { openInterest: 1000000000 })

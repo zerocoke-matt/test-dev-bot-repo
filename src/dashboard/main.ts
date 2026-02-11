@@ -491,7 +491,7 @@ function showError(title: string, message: string): void {
 }
 
 // Data Loading
-async function loadData(): Promise<void> {
+async function loadData(forceRefresh: boolean = false): Promise<void> {
   if (isLoading) {
     return;
   }
@@ -499,6 +499,13 @@ async function loadData(): Promise<void> {
   showLoading();
 
   try {
+    // When the user explicitly requests fresh data, tell the backend to
+    // clear its cache and re-fetch from exchanges/CoinGecko so we don't
+    // just re-read stale cached values.
+    if (forceRefresh) {
+      await fetch(`${API_BASE}/refresh`, { method: 'POST' });
+    }
+
     // Fetch data in parallel
     const [coins, stats] = await Promise.all([
       fetchFilteredCoins(),
@@ -553,7 +560,7 @@ function initializeDarkMode(): void {
 
 // Event Handlers
 function handleRefreshClick(): void {
-  loadData();
+  loadData(true); // Force backend to re-fetch from exchanges
 }
 
 function handleRetryClick(): void {
@@ -645,10 +652,10 @@ function setupEventListeners(): void {
 
   // Keyboard shortcuts
   document.addEventListener('keydown', (event) => {
-    // Ctrl/Cmd + R: Refresh
+    // Ctrl/Cmd + R: Refresh (force)
     if ((event.ctrlKey || event.metaKey) && event.key === 'r') {
       event.preventDefault();
-      loadData();
+      loadData(true);
     }
 
     // Ctrl/Cmd + K: Focus search
