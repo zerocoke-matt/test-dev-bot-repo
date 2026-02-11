@@ -204,6 +204,29 @@ describe('CacheService', () => {
       expect(result1).toBe('stale-value');
       expect(result2).toBe('fresh-value');
     });
+
+    it('should block stale in-flight writes after cache clear via generation counter', async () => {
+      let resolveFactory!: (value: string) => void;
+      const factory = jest.fn().mockImplementation(() => {
+        return new Promise<string>((resolve) => {
+          resolveFactory = resolve;
+        });
+      });
+
+      // Start a getOrSet — factory is pending
+      const promise = cacheService.getOrSet('gen-key', factory);
+
+      // Clear the cache while the factory is still running
+      cacheService.clear();
+
+      // Resolve the old factory — its .then() should NOT write to cache
+      // because the generation changed
+      resolveFactory('stale-data');
+      await promise;
+
+      // The stale value must NOT have been written to cache
+      expect(cacheService.get('gen-key')).toBeUndefined();
+    });
   });
 
   describe('getStats', () => {

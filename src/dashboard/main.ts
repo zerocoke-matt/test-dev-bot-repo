@@ -505,7 +505,10 @@ async function loadData(forceRefresh: boolean = false): Promise<void> {
     // clear its cache and re-fetch from exchanges/CoinGecko so we don't
     // just re-read stale cached values.
     if (forceRefresh) {
-      await fetch(`${API_BASE}/refresh`, { method: 'POST' });
+      const refreshResponse = await fetch(`${API_BASE}/refresh`, { method: 'POST' });
+      if (!refreshResponse.ok) {
+        throw new Error(`Backend refresh failed (HTTP ${refreshResponse.status})`);
+      }
     }
 
     // Fetch data in parallel

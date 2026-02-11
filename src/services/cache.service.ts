@@ -11,6 +11,7 @@ export class CacheService {
   private cache: NodeCache;
   private ttl: number;
   private inFlight: Map<string, Promise<unknown>> = new Map();
+  private generation: number = 0;
 
   constructor(config: CacheConfig) {
     this.ttl = config.ttl;
@@ -86,6 +87,9 @@ export class CacheService {
     // Drop in-flight computations so pre-flush factory() results
     // don't repopulate the cache with stale data after a refresh.
     this.inFlight.clear();
+    // Bump generation so any still-running factory promises from before
+    // the clear will skip their this.set() call when they resolve.
+    this.generation++;
     logger.info('Cache cleared');
   }
 
@@ -118,8 +122,15 @@ export class CacheService {
     }
 
     logger.debug(`Cache MISS: ${key}, computing value`);
+    const startGeneration = this.generation;
     const promise = factory().then((value) => {
-      this.set(key, value, ttl);
+      // Only write to cache if no clear() happened while the factory ran;
+      // otherwise we'd repopulate stale data after a refresh.
+      if (this.generation === startGeneration) {
+        this.set(key, value, ttl);
+      } else {
+        logger.debug(`Cache STALE skip: ${key} (generation changed)`);
+      }
       this.inFlight.delete(key);
       return value;
     }).catch((err) => {
