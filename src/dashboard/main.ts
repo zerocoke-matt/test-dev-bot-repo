@@ -542,7 +542,7 @@ async function loadData(forceRefresh: boolean = false): Promise<void> {
 function startAutoRefresh(): void {
   stopAutoRefresh();
   autoRefreshTimer = window.setInterval(() => {
-    loadData();
+    loadData(true);
   }, AUTO_REFRESH_INTERVAL);
 }
 

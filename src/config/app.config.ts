@@ -5,7 +5,7 @@
 
 import dotenv from 'dotenv';
 import { AppConfig } from '../types/config.types';
-import { DEFAULTS } from './constants';
+import { DEFAULTS, VALIDATION } from './constants';
 
 // Load environment variables
 dotenv.config();
@@ -103,8 +103,10 @@ export function validateConfig(config: AppConfig): void {
     throw new Error('PORT must be between 1 and 65535');
   }
 
-  if (config.filter.multiplier < 0) {
-    throw new Error('FILTER_MULTIPLIER must be non-negative');
+  if (config.filter.multiplier < VALIDATION.MIN_MULTIPLIER || config.filter.multiplier > VALIDATION.MAX_MULTIPLIER) {
+    throw new Error(
+      `FILTER_MULTIPLIER must be between ${VALIDATION.MIN_MULTIPLIER} and ${VALIDATION.MAX_MULTIPLIER}`
+    );
   }
 
   if (config.cache.ttl < 0) {
