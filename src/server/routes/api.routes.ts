@@ -20,7 +20,6 @@ export function createApiRouter(aggregator: AggregatorService): Router {
     try {
       const uptime = process.uptime();
       const lastRefresh = aggregator.getLastRefreshTime();
-      const cacheStats = aggregator.getCacheStats();
 
       res.status(HTTP_STATUS.OK).json({
         status: 'healthy',
@@ -28,7 +27,7 @@ export function createApiRouter(aggregator: AggregatorService): Router {
         timestamp: new Date(),
         services: {
           api: 'connected',
-          cache: cacheStats.keys >= 0 ? 'active' : 'inactive',
+          cache: aggregator.isCacheActive() ? 'active' : 'inactive',
         },
         lastDataRefresh: lastRefresh,
       });

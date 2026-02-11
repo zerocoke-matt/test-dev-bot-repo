@@ -22,6 +22,8 @@ export interface CoinGeckoMarketData {
 export class CoinGeckoClient {
   private httpClient: HttpClient;
   private requestTimes: number[] = [];
+  /** Mutex queue to serialize rate-limit checks and prevent burst concurrency */
+  private rateLimitQueue: Promise<void> = Promise.resolve();
 
   constructor(timeout: number = 15000) {
     this.httpClient = new HttpClient(
@@ -33,9 +35,19 @@ export class CoinGeckoClient {
   }
 
   /**
-   * Rate limit for CoinGecko free tier: ~10-30 req/min, use conservative 8 req/min
+   * Rate limit for CoinGecko free tier: ~10-30 req/min, use conservative 8 req/min.
+   * Serialized through a mutex queue so concurrent callers wait in line
+   * rather than all bursting through at once.
    */
-  private async rateLimit(): Promise<void> {
+  private rateLimit(): Promise<void> {
+    this.rateLimitQueue = this.rateLimitQueue.then(() => this.rateLimitCheck());
+    return this.rateLimitQueue;
+  }
+
+  /**
+   * Internal rate-limit check — only one caller runs this at a time.
+   */
+  private async rateLimitCheck(): Promise<void> {
     const now = Date.now();
     const windowMs = 60000; // 1 minute
     this.requestTimes = this.requestTimes.filter(t => now - t < windowMs);

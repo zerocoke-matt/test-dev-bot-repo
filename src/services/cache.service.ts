@@ -185,10 +185,16 @@ export class CacheService {
   }
 
   /**
-   * Check if cache is active
+   * Check if cache is active by performing a real operation.
+   * Returns false if the underlying store is unusable.
    */
   isActive(): boolean {
-    const stats = this.getStats();
-    return stats.keys >= 0;
+    try {
+      // Attempt a real cache operation; if the store is broken this will throw
+      this.cache.keys();
+      return true;
+    } catch {
+      return false;
+    }
   }
 }

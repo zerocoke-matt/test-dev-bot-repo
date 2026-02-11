@@ -217,4 +217,11 @@ export class AggregatorService {
   getCacheStats() {
     return this.cacheService.getStats();
   }
+
+  /**
+   * Check if the cache subsystem is usable
+   */
+  isCacheActive(): boolean {
+    return this.cacheService.isActive();
+  }
 }
