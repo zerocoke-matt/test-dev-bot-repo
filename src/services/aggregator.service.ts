@@ -54,10 +54,8 @@ export class AggregatorService {
   async getFilteredCoins(params: QueryParams): Promise<FilterResult> {
     logger.debug('Getting filtered coins with params', params);
 
-    // Get all coins (from cache or API)
-    const allCoins = await this.getAllCoins();
-
-    // Build filter config
+    // Build and validate filter config BEFORE fetching data so malformed
+    // requests fail fast without consuming upstream exchange/CoinGecko quota.
     const filterConfig: FilterConfig = {
       multiplier: params.multiplier ?? this.defaultMultiplier,
       minMarketCap: params.minMarketCap,
@@ -66,11 +64,13 @@ export class AggregatorService {
       symbols: params.symbols ? params.symbols.split(',').map((s) => s.trim()) : undefined,
     };
 
-    // Validate filter config
     const validationErrors = this.filterService.validateConfig(filterConfig);
     if (validationErrors.length > 0) {
       throw new Error(`Invalid filter configuration: ${validationErrors.join(', ')}`);
     }
+
+    // Get all coins (from cache or API)
+    const allCoins = await this.getAllCoins();
 
     // Filter coins
     let result = this.filterService.filterCoins(allCoins, filterConfig);
@@ -128,10 +128,8 @@ export class AggregatorService {
   async getStatistics(params?: QueryParams): Promise<Statistics> {
     logger.debug('Calculating statistics');
 
-    // Get all coins (from cache or API) — no pagination applied
-    const allCoins = await this.getAllCoins();
-
-    // Build filter config from params (same logic as getFilteredCoins)
+    // Build and validate filter config BEFORE fetching data so malformed
+    // requests fail fast without consuming upstream exchange/CoinGecko quota.
     const effectiveParams = params ?? {};
     const filterConfig: FilterConfig = {
       multiplier: effectiveParams.multiplier ?? this.defaultMultiplier,
@@ -141,11 +139,13 @@ export class AggregatorService {
       symbols: effectiveParams.symbols ? effectiveParams.symbols.split(',').map((s) => s.trim()) : undefined,
     };
 
-    // Validate filter config (same as getFilteredCoins)
     const validationErrors = this.filterService.validateConfig(filterConfig);
     if (validationErrors.length > 0) {
       throw new Error(`Invalid filter configuration: ${validationErrors.join(', ')}`);
     }
+
+    // Get all coins (from cache or API) — no pagination applied
+    const allCoins = await this.getAllCoins();
 
     // Filter coins without pagination to get the complete set
     const filterResult = this.filterService.filterCoins(allCoins, filterConfig);

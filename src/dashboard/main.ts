@@ -41,6 +41,7 @@ let currentSortDirection: 'asc' | 'desc' = 'asc';
 let autoRefreshTimer: number | null = null;
 let isLoading = false;
 let pendingReload = false;
+let pendingForceRefresh = false;
 let sliderDebounceTimer: number | null = null;
 
 // DOM Elements
@@ -505,6 +506,9 @@ async function loadData(forceRefresh: boolean = false): Promise<void> {
     // A reload was requested while already fetching — queue it so the UI
     // is eventually consistent with the latest filter/slider state.
     pendingReload = true;
+    // Preserve force-refresh intent so a manual refresh isn't downgraded
+    // to a cached read when it gets replayed.
+    if (forceRefresh) pendingForceRefresh = true;
     return;
   }
 
@@ -546,7 +550,9 @@ async function loadData(forceRefresh: boolean = false): Promise<void> {
     // catches up with the latest filter state.
     if (pendingReload) {
       pendingReload = false;
-      loadData();
+      const shouldForce = pendingForceRefresh;
+      pendingForceRefresh = false;
+      loadData(shouldForce);
     }
   }
 }
