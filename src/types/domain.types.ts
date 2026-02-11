@@ -92,7 +92,7 @@ export interface QueryParams {
   minMarketCap?: number;
   maxMarketCap?: number;
   minOI?: number;
-  symbols?: string;
+  symbols?: string | string[];
   sortBy?: SortField;
   sortOrder?: SortOrder;
   limit?: number;

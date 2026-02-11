@@ -18,8 +18,20 @@ import {
 import { logger } from '../logger/logger';
 import { CACHE_KEYS, DEFAULTS, VALIDATION } from '../config/constants';
 
+/**
+ * Normalize a symbols query param to a string.
+ * Express may parse repeated keys (?symbols=BTC&symbols=ETH) as string[],
+ * so we join arrays back to a comma-separated string before splitting.
+ */
+function normalizeSymbols(raw: string | string[] | undefined): string | undefined {
+  if (raw === undefined) return undefined;
+  return Array.isArray(raw) ? raw.join(',') : raw;
+}
+
 export class AggregatorService {
   private lastRefreshTime: Date | null = null;
+  /** In-flight refresh promise so concurrent POST /api/refresh calls share one fetch. */
+  private refreshPromise: Promise<void> | null = null;
 
   constructor(
     private dataFetcher: DataFetcherService,
@@ -61,7 +73,7 @@ export class AggregatorService {
       minMarketCap: params.minMarketCap,
       maxMarketCap: params.maxMarketCap,
       minOI: params.minOI,
-      symbols: params.symbols ? params.symbols.split(',').map((s) => s.trim()) : undefined,
+      symbols: normalizeSymbols(params.symbols)?.split(',').map((s) => s.trim()),
     };
 
     const validationErrors = this.filterService.validateConfig(filterConfig);
@@ -136,7 +148,7 @@ export class AggregatorService {
       minMarketCap: effectiveParams.minMarketCap,
       maxMarketCap: effectiveParams.maxMarketCap,
       minOI: effectiveParams.minOI,
-      symbols: effectiveParams.symbols ? effectiveParams.symbols.split(',').map((s) => s.trim()) : undefined,
+      symbols: normalizeSymbols(effectiveParams.symbols)?.split(',').map((s) => s.trim()),
     };
 
     const validationErrors = this.filterService.validateConfig(filterConfig);
@@ -195,13 +207,28 @@ export class AggregatorService {
   }
 
   /**
-   * Refresh all data
+   * Refresh all data.
+   * Concurrent calls share one in-flight refresh to avoid duplicate
+   * upstream exchange/CoinGecko fetches and rate-limit pressure.
    */
   async refreshData(): Promise<void> {
-    logger.info('Refreshing all data');
-    this.cacheService.clear();
-    await this.getAllCoins(true);
-    logger.info('Data refresh complete');
+    if (this.refreshPromise) {
+      logger.debug('Refresh already in progress, joining existing request');
+      return this.refreshPromise;
+    }
+
+    this.refreshPromise = (async () => {
+      try {
+        logger.info('Refreshing all data');
+        this.cacheService.clear();
+        await this.getAllCoins(true);
+        logger.info('Data refresh complete');
+      } finally {
+        this.refreshPromise = null;
+      }
+    })();
+
+    return this.refreshPromise;
   }
 
   /**
