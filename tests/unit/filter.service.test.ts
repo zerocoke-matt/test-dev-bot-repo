@@ -546,6 +546,47 @@ describe('FilterService', () => {
 
       expect(errors.length).toBeGreaterThan(1);
     });
+
+    it('should error when multiplier is NaN', () => {
+      const config = { multiplier: NaN };
+
+      const errors = filterService.validateConfig(config);
+
+      expect(errors).toContain('multiplier must be a valid number');
+    });
+
+    it('should error when minMarketCap is NaN', () => {
+      const config = { minMarketCap: NaN };
+
+      const errors = filterService.validateConfig(config);
+
+      expect(errors).toContain('minMarketCap must be a valid number');
+    });
+
+    it('should error when maxMarketCap is NaN', () => {
+      const config = { maxMarketCap: NaN };
+
+      const errors = filterService.validateConfig(config);
+
+      expect(errors).toContain('maxMarketCap must be a valid number');
+    });
+
+    it('should error when minOI is NaN', () => {
+      const config = { minOI: NaN };
+
+      const errors = filterService.validateConfig(config);
+
+      expect(errors).toContain('minOI must be a valid number');
+    });
+
+    it('should not check minMarketCap > maxMarketCap when either is NaN', () => {
+      const config = { minMarketCap: NaN, maxMarketCap: 5000 };
+
+      const errors = filterService.validateConfig(config);
+
+      expect(errors).toContain('minMarketCap must be a valid number');
+      expect(errors).not.toContain('minMarketCap must be less than or equal to maxMarketCap');
+    });
   });
 
   describe('getDefaultConfig', () => {

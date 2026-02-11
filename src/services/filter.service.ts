@@ -133,7 +133,9 @@ export class FilterService {
     const errors: string[] = [];
 
     if (config.multiplier !== undefined) {
-      if (
+      if (isNaN(config.multiplier)) {
+        errors.push('multiplier must be a valid number');
+      } else if (
         config.multiplier < VALIDATION.MIN_MULTIPLIER ||
         config.multiplier > VALIDATION.MAX_MULTIPLIER
       ) {
@@ -143,24 +145,38 @@ export class FilterService {
       }
     }
 
-    if (config.minMarketCap !== undefined && config.minMarketCap < VALIDATION.MIN_MARKET_CAP) {
-      errors.push(`minMarketCap must be non-negative`);
+    if (config.minMarketCap !== undefined) {
+      if (isNaN(config.minMarketCap)) {
+        errors.push('minMarketCap must be a valid number');
+      } else if (config.minMarketCap < VALIDATION.MIN_MARKET_CAP) {
+        errors.push(`minMarketCap must be non-negative`);
+      }
     }
 
-    if (config.maxMarketCap !== undefined && config.maxMarketCap < VALIDATION.MIN_MARKET_CAP) {
-      errors.push(`maxMarketCap must be non-negative`);
+    if (config.maxMarketCap !== undefined) {
+      if (isNaN(config.maxMarketCap)) {
+        errors.push('maxMarketCap must be a valid number');
+      } else if (config.maxMarketCap < VALIDATION.MIN_MARKET_CAP) {
+        errors.push(`maxMarketCap must be non-negative`);
+      }
     }
 
     if (
       config.minMarketCap !== undefined &&
       config.maxMarketCap !== undefined &&
+      !isNaN(config.minMarketCap) &&
+      !isNaN(config.maxMarketCap) &&
       config.minMarketCap > config.maxMarketCap
     ) {
       errors.push(`minMarketCap must be less than or equal to maxMarketCap`);
     }
 
-    if (config.minOI !== undefined && config.minOI < 0) {
-      errors.push(`minOI must be non-negative`);
+    if (config.minOI !== undefined) {
+      if (isNaN(config.minOI)) {
+        errors.push('minOI must be a valid number');
+      } else if (config.minOI < 0) {
+        errors.push(`minOI must be non-negative`);
+      }
     }
 
     return errors;

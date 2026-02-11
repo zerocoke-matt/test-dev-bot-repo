@@ -113,7 +113,12 @@ async function fetchFilteredCoins(): Promise<CoinData[]> {
 async function fetchStatistics(): Promise<Statistics> {
   try {
     const multiplier = parseFloat(elements.multiplierSlider.value);
-    const response = await fetch(`${API_BASE}/statistics?multiplier=${multiplier}`);
+    const minMarketCap = parseFloat(elements.minMarketCapSlider.value);
+    let url = `${API_BASE}/statistics?multiplier=${multiplier}`;
+    if (minMarketCap > 0) {
+      url += `&minMarketCap=${minMarketCap}`;
+    }
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }

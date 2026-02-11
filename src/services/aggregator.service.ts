@@ -134,6 +134,12 @@ export class AggregatorService {
       symbols: effectiveParams.symbols ? effectiveParams.symbols.split(',').map((s) => s.trim()) : undefined,
     };
 
+    // Validate filter config (same as getFilteredCoins)
+    const validationErrors = this.filterService.validateConfig(filterConfig);
+    if (validationErrors.length > 0) {
+      throw new Error(`Invalid filter configuration: ${validationErrors.join(', ')}`);
+    }
+
     // Filter coins without pagination to get the complete set
     const filterResult = this.filterService.filterCoins(allCoins, filterConfig);
     const coins = filterResult.coins;
