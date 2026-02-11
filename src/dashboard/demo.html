@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coinglass OI vs MC Dashboard - Demo Mode</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header Section -->
+    <header class="header">
+      <div class="header-content">
+        <div class="header-left">
+          <h1>Coinglass OI vs MC Dashboard</h1>
+          <p class="subtitle">Demo Mode - Using Mock Data</p>
+        </div>
+        <div class="header-right">
+          <div class="last-updated">
+            <span class="label">Last Updated:</span>
+            <span id="lastUpdated">12:34:56 PM</span>
+          </div>
+          <button id="refreshBtn" class="btn btn-primary">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+            </svg>
+            Refresh
+          </button>
+          <button id="darkModeToggle" class="btn btn-secondary">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <!-- Filter Panel -->
+      <section class="filter-panel card">
+        <h2 class="section-title">Filter Configuration</h2>
+        <div class="filter-controls">
+          <div class="filter-item">
+            <label for="multiplierInput">OI to MC Multiplier:</label>
+            <div class="input-group">
+              <input type="number" id="multiplierInput" value="1.5" min="0.1" max="10" step="0.1">
+              <span class="input-suffix">x</span>
+            </div>
+          </div>
+          <div class="filter-item">
+            <label>Exchanges:</label>
+            <div class="chip-group">
+              <span class="chip">Binance</span>
+              <span class="chip">Bybit</span>
+              <span class="chip">OKX</span>
+            </div>
+          </div>
+          <div class="filter-item">
+            <label for="autoRefreshToggle">
+              <input type="checkbox" id="autoRefreshToggle" checked>
+              Auto-refresh (5 min)
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Statistics Panel -->
+      <section class="stats-panel">
+        <div class="stat-card card">
+          <div class="stat-icon stat-icon-primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 6v6l4 2"/>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <div class="stat-label">Total Coins</div>
+            <div class="stat-value">50</div>
+          </div>
+        </div>
+        <div class="stat-card card">
+          <div class="stat-icon stat-icon-success">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <div class="stat-label">Passing Filter</div>
+            <div class="stat-value">12</div>
+          </div>
+        </div>
+        <div class="stat-card card">
+          <div class="stat-icon stat-icon-warning">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <div class="stat-label">Avg OI/MC Ratio</div>
+            <div class="stat-value">1.35x</div>
+          </div>
+        </div>
+        <div class="stat-card card">
+          <div class="stat-icon stat-icon-danger">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+              <polyline points="17 6 23 6 23 12"/>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <div class="stat-label">Pass Rate</div>
+            <div class="stat-value">24.0%</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Coin Table -->
+      <section class="coin-table-section card">
+        <div class="table-header">
+          <h2 class="section-title">Filtered Cryptocurrencies</h2>
+          <div class="table-actions">
+            <input type="search" id="searchInput" placeholder="Search coins..." class="search-input">
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="coin-table">
+            <thead>
+              <tr>
+                <th class="sortable">Symbol <span class="sort-indicator"></span></th>
+                <th class="sortable">Name <span class="sort-indicator"></span></th>
+                <th class="sortable text-right">Price <span class="sort-indicator"></span></th>
+                <th class="sortable text-right">Market Cap <span class="sort-indicator"></span></th>
+                <th class="sortable text-right">Aggregate OI <span class="sort-indicator"></span></th>
+                <th class="sortable text-right">OI/MC Ratio <span class="sort-indicator"></span></th>
+                <th class="sortable text-center">Status <span class="sort-indicator"></span></th>
+                <th class="text-right">Last Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Example: Passing coin -->
+              <tr class="pass">
+                <td>
+                  <div class="symbol-cell">BTC</div>
+                </td>
+                <td>Bitcoin</td>
+                <td class="text-right price-formatted">$45,250.00</td>
+                <td class="text-right market-cap-formatted">$885.50B</td>
+                <td class="text-right oi-formatted">$15.80B</td>
+                <td class="text-right ratio-highlight">1.78x</td>
+                <td class="text-center">
+                  <span class="status-badge pass">✅ Pass</span>
+                </td>
+                <td class="text-right">5m ago</td>
+              </tr>
+              <!-- Example: Failing coin -->
+              <tr>
+                <td>
+                  <div class="symbol-cell">ETH</div>
+                </td>
+                <td>Ethereum</td>
+                <td class="text-right price-formatted">$2,840.00</td>
+                <td class="text-right market-cap-formatted">$341.20B</td>
+                <td class="text-right oi-formatted">$4.50B</td>
+                <td class="text-right">1.32x</td>
+                <td class="text-center">
+                  <span class="status-badge fail">❌ Fail</span>
+                </td>
+                <td class="text-right">5m ago</td>
+              </tr>
+              <!-- Example: Passing coin -->
+              <tr class="pass">
+                <td>
+                  <div class="symbol-cell">SOL</div>
+                </td>
+                <td>Solana</td>
+                <td class="text-right price-formatted">$98.50</td>
+                <td class="text-right market-cap-formatted">$43.20B</td>
+                <td class="text-right oi-formatted">$2.10B</td>
+                <td class="text-right ratio-highlight">4.86x</td>
+                <td class="text-center">
+                  <span class="status-badge pass">✅ Pass</span>
+                </td>
+                <td class="text-right">5m ago</td>
+              </tr>
+              <!-- Example: Failing coin -->
+              <tr>
+                <td>
+                  <div class="symbol-cell">ADA</div>
+                </td>
+                <td>Cardano</td>
+                <td class="text-right price-formatted">$0.5240</td>
+                <td class="text-right market-cap-formatted">$18.50B</td>
+                <td class="text-right oi-formatted">$180.00M</td>
+                <td class="text-right">0.97x</td>
+                <td class="text-center">
+                  <span class="status-badge fail">❌ Fail</span>
+                </td>
+                <td class="text-right">5m ago</td>
+              </tr>
+              <!-- Example: Passing coin -->
+              <tr class="pass">
+                <td>
+                  <div class="symbol-cell">DOGE</div>
+                </td>
+                <td>Dogecoin</td>
+                <td class="text-right price-formatted">$0.0842</td>
+                <td class="text-right market-cap-formatted">$12.10B</td>
+                <td class="text-right oi-formatted">$950.00M</td>
+                <td class="text-right ratio-highlight">7.85x</td>
+                <td class="text-center">
+                  <span class="status-badge pass">✅ Pass</span>
+                </td>
+                <td class="text-right">5m ago</td>
+              </tr>
+              <!-- More examples -->
+              <tr>
+                <td>
+                  <div class="symbol-cell">XRP</div>
+                </td>
+                <td>Ripple</td>
+                <td class="text-right price-formatted">$0.5680</td>
+                <td class="text-right market-cap-formatted">$30.80B</td>
+                <td class="text-right oi-formatted">$420.00M</td>
+                <td class="text-right">1.36x</td>
+                <td class="text-center">
+                  <span class="status-badge fail">❌ Fail</span>
+                </td>
+                <td class="text-right">5m ago</td>
+              </tr>
+              <tr class="pass">
+                <td>
+                  <div class="symbol-cell">AVAX</div>
+                </td>
+                <td>Avalanche</td>
+                <td class="text-right price-formatted">$36.40</td>
+                <td class="text-right market-cap-formatted">$13.50B</td>
+                <td class="text-right oi-formatted">$780.00M</td>
+                <td class="text-right ratio-highlight">5.78x</td>
+                <td class="text-center">
+                  <span class="status-badge pass">✅ Pass</span>
+                </td>
+                <td class="text-right">5m ago</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="symbol-cell">DOT</div>
+                </td>
+                <td>Polkadot</td>
+                <td class="text-right price-formatted">$7.24</td>
+                <td class="text-right market-cap-formatted">$9.80B</td>
+                <td class="text-right oi-formatted">$125.00M</td>
+                <td class="text-right">1.28x</td>
+                <td class="text-center">
+                  <span class="status-badge fail">❌ Fail</span>
+                </td>
+                <td class="text-right">5m ago</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-content">
+        <p>
+          Data sourced from
+          <a href="https://www.coinglass.com" target="_blank" rel="noopener noreferrer">Coinglass</a>
+          and
+          <a href="https://www.coingecko.com" target="_blank" rel="noopener noreferrer">CoinGecko</a>
+        </p>
+        <p class="footer-note">
+          This dashboard is for informational purposes only. Not financial advice.
+        </p>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast"></div>
+
+  <script>
+    // Simple demo functionality
+    document.getElementById('darkModeToggle').addEventListener('click', () => {
+      document.body.classList.toggle('light-mode');
+    });
+
+    document.getElementById('refreshBtn').addEventListener('click', () => {
+      const btn = document.getElementById('refreshBtn');
+      btn.classList.add('loading');
+      setTimeout(() => {
+        btn.classList.remove('loading');
+        showToast('Data refreshed (demo mode)', 'success');
+      }, 1000);
+    });
+
+    function showToast(message, type) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = `toast ${type} show`;
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+
+    // Update time every second
+    setInterval(() => {
+      const now = new Date();
+      document.getElementById('lastUpdated').textContent = now.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    }, 1000);
+  </script>
+</body>
+</html>
