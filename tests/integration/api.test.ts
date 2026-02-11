@@ -1,6 +1,7 @@
 /**
  * API Endpoint Integration Tests
  * Tests for Express REST API endpoints
+ * Updated for exchange-based OI system with CoinGecko market data
  */
 
 import request from 'supertest';
@@ -10,38 +11,62 @@ import { AggregatorService } from '../../src/services/aggregator.service';
 import { DataFetcherService } from '../../src/services/data-fetcher.service';
 import { FilterService } from '../../src/services/filter.service';
 import { CacheService } from '../../src/services/cache.service';
-import { CoinglassClient } from '../../src/api/coinglass-client';
-import { HttpClient } from '../../src/api/http-client';
+import { IExchangeClient } from '../../src/api/exchanges/exchange-client';
+import { CoinGeckoClient } from '../../src/api/coingecko-client';
 import {
-  createMockApiResponse,
-  createMockAggregateOI,
-  createMockMarketCap,
-  createMockCoinListItem,
+  createMockExchangeOIData,
+  createMockCoinGeckoMarketData,
 } from '../helpers/test-utils';
 
-// Mock the HttpClient
-jest.mock('../../src/api/http-client');
+// Mock the CoinGeckoClient module
+jest.mock('../../src/api/coingecko-client');
 
 describe('API Endpoints', () => {
   let app: Express;
   let aggregatorService: AggregatorService;
-  let mockHttpClient: jest.Mocked<HttpClient>;
+  let mockExchangeClients: jest.Mocked<IExchangeClient>[];
+  let mockCoinGeckoClient: jest.Mocked<CoinGeckoClient>;
+
+  function createMockExchangeClient(name: string): jest.Mocked<IExchangeClient> {
+    return {
+      exchangeName: name,
+      getOpenInterest: jest.fn(),
+      getBatchOpenInterest: jest.fn(),
+    };
+  }
+
+  /**
+   * Setup exchange clients to return OI for multiple symbols
+   */
+  function setupExchangeOIForSymbols(symbolOIs: Record<string, number>): void {
+    mockExchangeClients.forEach((client) => {
+      client.getOpenInterest.mockImplementation(async (sym: string) => {
+        if (sym in symbolOIs) {
+          return createMockExchangeOIData(sym, client.exchangeName, {
+            openInterest: symbolOIs[sym],
+          });
+        }
+        throw new Error(`No data for ${sym}`);
+      });
+    });
+  }
 
   beforeEach(() => {
     jest.clearAllMocks();
 
+    // Create mock exchange clients
+    mockExchangeClients = [
+      createMockExchangeClient('binance'),
+      createMockExchangeClient('bybit'),
+      createMockExchangeClient('bitget'),
+      createMockExchangeClient('okx'),
+    ];
+
+    // Create mock CoinGecko client
+    mockCoinGeckoClient = new CoinGeckoClient() as jest.Mocked<CoinGeckoClient>;
+
     // Create services
-    const coinglassClient = new CoinglassClient({
-      apiKey: 'test-key',
-      baseUrl: 'https://api.test.com',
-      timeout: 10000,
-      maxRetries: 3,
-      retryDelay: 1000,
-    });
-
-    mockHttpClient = (coinglassClient as any).httpClient;
-
-    const dataFetcherService = new DataFetcherService(coinglassClient);
+    const dataFetcherService = new DataFetcherService(mockExchangeClients, mockCoinGeckoClient);
     const filterService = new FilterService();
     const cacheService = new CacheService({ ttl: 10 });
 
@@ -89,27 +114,33 @@ describe('API Endpoints', () => {
 
   describe('GET /api/coins', () => {
     it('should return filtered coins', async () => {
-      const coinListResponse = createMockApiResponse([
-        createMockCoinListItem('BTC'),
-        createMockCoinListItem('ETH'),
+      // BTC passes filter, ETH does not
+      // BTC: 4 * 5B = 20B OI, MC = 8B -> 20B * 0.5 = 10B > 8B (passes)
+      // ETH: 4 * 2.5B = 10B OI, MC = 8B -> 10B * 0.5 = 5B < 8B (fails)
+      setupExchangeOIForSymbols({ BTC: 5000000000, ETH: 2500000000 });
+
+      mockCoinGeckoClient.getMarketDataByIds.mockResolvedValue([
+        createMockCoinGeckoMarketData({
+          id: 'bitcoin',
+          symbol: 'btc',
+          name: 'Bitcoin',
+          current_price: 40000,
+          market_cap: 8000000000,
+          market_cap_rank: 1,
+          total_volume: 20000000000,
+          price_change_percentage_24h: 2.5,
+        }),
+        createMockCoinGeckoMarketData({
+          id: 'ethereum',
+          symbol: 'eth',
+          name: 'Ethereum',
+          current_price: 2500,
+          market_cap: 8000000000,
+          market_cap_rank: 2,
+          total_volume: 10000000000,
+          price_change_percentage_24h: -1.0,
+        }),
       ]);
-
-      const btcOI = createMockAggregateOI('BTC');
-      btcOI.totalOIAmount = 20000000000;
-      const btcMC = createMockMarketCap('BTC');
-      btcMC.marketCap = 8000000000;
-
-      const ethOI = createMockAggregateOI('ETH');
-      ethOI.totalOIAmount = 10000000000;
-      const ethMC = createMockMarketCap('ETH');
-      ethMC.marketCap = 8000000000;
-
-      mockHttpClient.get
-        .mockResolvedValueOnce({ data: coinListResponse, status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcOI), status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcMC), status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(ethOI), status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(ethMC), status: 200, statusText: 'OK', headers: {} });
 
       const response = await request(app).get('/api/coins');
 
@@ -122,14 +153,11 @@ describe('API Endpoints', () => {
     });
 
     it('should accept multiplier query parameter', async () => {
-      const coinListResponse = createMockApiResponse([createMockCoinListItem('BTC')]);
-      const btcOI = createMockAggregateOI('BTC');
-      const btcMC = createMockMarketCap('BTC');
+      setupExchangeOIForSymbols({ BTC: 5000000000 });
 
-      mockHttpClient.get
-        .mockResolvedValueOnce({ data: coinListResponse, status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcOI), status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcMC), status: 200, statusText: 'OK', headers: {} });
+      mockCoinGeckoClient.getMarketDataByIds.mockResolvedValue([
+        createMockCoinGeckoMarketData({ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' }),
+      ]);
 
       const response = await request(app).get('/api/coins?multiplier=0.7');
 
@@ -138,14 +166,11 @@ describe('API Endpoints', () => {
     });
 
     it('should accept minMarketCap query parameter', async () => {
-      const coinListResponse = createMockApiResponse([createMockCoinListItem('BTC')]);
-      const btcOI = createMockAggregateOI('BTC');
-      const btcMC = createMockMarketCap('BTC');
+      setupExchangeOIForSymbols({ BTC: 5000000000 });
 
-      mockHttpClient.get
-        .mockResolvedValueOnce({ data: coinListResponse, status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcOI), status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcMC), status: 200, statusText: 'OK', headers: {} });
+      mockCoinGeckoClient.getMarketDataByIds.mockResolvedValue([
+        createMockCoinGeckoMarketData({ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' }),
+      ]);
 
       const response = await request(app).get('/api/coins?minMarketCap=1000000000');
 
@@ -154,14 +179,11 @@ describe('API Endpoints', () => {
     });
 
     it('should accept sortBy and sortOrder query parameters', async () => {
-      const coinListResponse = createMockApiResponse([createMockCoinListItem('BTC')]);
-      const btcOI = createMockAggregateOI('BTC');
-      const btcMC = createMockMarketCap('BTC');
+      setupExchangeOIForSymbols({ BTC: 5000000000 });
 
-      mockHttpClient.get
-        .mockResolvedValueOnce({ data: coinListResponse, status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcOI), status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcMC), status: 200, statusText: 'OK', headers: {} });
+      mockCoinGeckoClient.getMarketDataByIds.mockResolvedValue([
+        createMockCoinGeckoMarketData({ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' }),
+      ]);
 
       const response = await request(app).get('/api/coins?sortBy=marketCap&sortOrder=asc');
 
@@ -169,14 +191,11 @@ describe('API Endpoints', () => {
     });
 
     it('should accept limit and offset query parameters', async () => {
-      const coinListResponse = createMockApiResponse([createMockCoinListItem('BTC')]);
-      const btcOI = createMockAggregateOI('BTC');
-      const btcMC = createMockMarketCap('BTC');
+      setupExchangeOIForSymbols({ BTC: 5000000000 });
 
-      mockHttpClient.get
-        .mockResolvedValueOnce({ data: coinListResponse, status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcOI), status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcMC), status: 200, statusText: 'OK', headers: {} });
+      mockCoinGeckoClient.getMarketDataByIds.mockResolvedValue([
+        createMockCoinGeckoMarketData({ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' }),
+      ]);
 
       const response = await request(app).get('/api/coins?limit=10&offset=5');
 
@@ -184,14 +203,11 @@ describe('API Endpoints', () => {
     });
 
     it('should accept symbols query parameter', async () => {
-      const coinListResponse = createMockApiResponse([createMockCoinListItem('BTC')]);
-      const btcOI = createMockAggregateOI('BTC');
-      const btcMC = createMockMarketCap('BTC');
+      setupExchangeOIForSymbols({ BTC: 5000000000 });
 
-      mockHttpClient.get
-        .mockResolvedValueOnce({ data: coinListResponse, status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcOI), status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcMC), status: 200, statusText: 'OK', headers: {} });
+      mockCoinGeckoClient.getMarketDataByIds.mockResolvedValue([
+        createMockCoinGeckoMarketData({ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' }),
+      ]);
 
       const response = await request(app).get('/api/coins?symbols=BTC,ETH');
 
@@ -199,7 +215,7 @@ describe('API Endpoints', () => {
     });
 
     it('should return 500 on internal error', async () => {
-      mockHttpClient.get.mockRejectedValue(new Error('Internal error'));
+      mockCoinGeckoClient.getMarketDataByIds.mockRejectedValue(new Error('Internal error'));
 
       const response = await request(app).get('/api/coins');
 
@@ -211,12 +227,20 @@ describe('API Endpoints', () => {
 
   describe('GET /api/coins/:symbol', () => {
     it('should return specific coin by symbol', async () => {
-      const btcOI = createMockAggregateOI('BTC');
-      const btcMC = createMockMarketCap('BTC');
+      mockExchangeClients.forEach((client) => {
+        client.getOpenInterest.mockResolvedValue(
+          createMockExchangeOIData('BTC', client.exchangeName, { openInterest: 500000000 })
+        );
+      });
 
-      mockHttpClient.get
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcOI), status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcMC), status: 200, statusText: 'OK', headers: {} });
+      mockCoinGeckoClient.getMarketDataByIds.mockResolvedValue([
+        createMockCoinGeckoMarketData({
+          id: 'bitcoin',
+          symbol: 'btc',
+          name: 'Bitcoin',
+          market_cap: 800000000000,
+        }),
+      ]);
 
       const response = await request(app).get('/api/coins/BTC');
 
@@ -226,7 +250,10 @@ describe('API Endpoints', () => {
     });
 
     it('should return 404 for non-existent coin', async () => {
-      mockHttpClient.get.mockRejectedValue(new Error('Not found'));
+      mockExchangeClients.forEach((client) => {
+        client.getOpenInterest.mockRejectedValue(new Error('Not found'));
+      });
+      mockCoinGeckoClient.getMarketDataByIds.mockResolvedValue([]);
 
       const response = await request(app).get('/api/coins/INVALID');
 
@@ -236,12 +263,15 @@ describe('API Endpoints', () => {
     });
 
     it('should handle lowercase symbols', async () => {
-      const btcOI = createMockAggregateOI('BTC');
-      const btcMC = createMockMarketCap('BTC');
+      mockExchangeClients.forEach((client) => {
+        client.getOpenInterest.mockResolvedValue(
+          createMockExchangeOIData('BTC', client.exchangeName, { openInterest: 500000000 })
+        );
+      });
 
-      mockHttpClient.get
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcOI), status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcMC), status: 200, statusText: 'OK', headers: {} });
+      mockCoinGeckoClient.getMarketDataByIds.mockResolvedValue([
+        createMockCoinGeckoMarketData({ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' }),
+      ]);
 
       const response = await request(app).get('/api/coins/btc');
 
@@ -249,7 +279,10 @@ describe('API Endpoints', () => {
     });
 
     it('should return 500 on internal error', async () => {
-      mockHttpClient.get.mockRejectedValue(new Error('Internal error'));
+      mockExchangeClients.forEach((client) => {
+        client.getOpenInterest.mockRejectedValue(new Error('Internal error'));
+      });
+      mockCoinGeckoClient.getMarketDataByIds.mockRejectedValue(new Error('Internal error'));
 
       const response = await request(app).get('/api/coins/BTC');
 
@@ -259,27 +292,23 @@ describe('API Endpoints', () => {
 
   describe('GET /api/statistics', () => {
     it('should return valid statistics', async () => {
-      const coinListResponse = createMockApiResponse([
-        createMockCoinListItem('BTC'),
-        createMockCoinListItem('ETH'),
+      // Both BTC and ETH pass filter with high OI
+      setupExchangeOIForSymbols({ BTC: 5000000000, ETH: 3750000000 });
+
+      mockCoinGeckoClient.getMarketDataByIds.mockResolvedValue([
+        createMockCoinGeckoMarketData({
+          id: 'bitcoin',
+          symbol: 'btc',
+          name: 'Bitcoin',
+          market_cap: 8000000000,
+        }),
+        createMockCoinGeckoMarketData({
+          id: 'ethereum',
+          symbol: 'eth',
+          name: 'Ethereum',
+          market_cap: 6000000000,
+        }),
       ]);
-
-      const btcOI = createMockAggregateOI('BTC');
-      btcOI.totalOIAmount = 20000000000;
-      const btcMC = createMockMarketCap('BTC');
-      btcMC.marketCap = 8000000000;
-
-      const ethOI = createMockAggregateOI('ETH');
-      ethOI.totalOIAmount = 15000000000;
-      const ethMC = createMockMarketCap('ETH');
-      ethMC.marketCap = 6000000000;
-
-      mockHttpClient.get
-        .mockResolvedValueOnce({ data: coinListResponse, status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcOI), status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcMC), status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(ethOI), status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(ethMC), status: 200, statusText: 'OK', headers: {} });
 
       const response = await request(app).get('/api/statistics');
 
@@ -294,14 +323,11 @@ describe('API Endpoints', () => {
     });
 
     it('should accept filter parameters', async () => {
-      const coinListResponse = createMockApiResponse([createMockCoinListItem('BTC')]);
-      const btcOI = createMockAggregateOI('BTC');
-      const btcMC = createMockMarketCap('BTC');
+      setupExchangeOIForSymbols({ BTC: 5000000000 });
 
-      mockHttpClient.get
-        .mockResolvedValueOnce({ data: coinListResponse, status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcOI), status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcMC), status: 200, statusText: 'OK', headers: {} });
+      mockCoinGeckoClient.getMarketDataByIds.mockResolvedValue([
+        createMockCoinGeckoMarketData({ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' }),
+      ]);
 
       const response = await request(app).get('/api/statistics?multiplier=0.7');
 
@@ -309,7 +335,7 @@ describe('API Endpoints', () => {
     });
 
     it('should return 500 on internal error', async () => {
-      mockHttpClient.get.mockRejectedValue(new Error('Internal error'));
+      mockCoinGeckoClient.getMarketDataByIds.mockRejectedValue(new Error('Internal error'));
 
       const response = await request(app).get('/api/statistics');
 
@@ -320,14 +346,11 @@ describe('API Endpoints', () => {
 
   describe('POST /api/refresh', () => {
     it('should refresh data successfully', async () => {
-      const coinListResponse = createMockApiResponse([createMockCoinListItem('BTC')]);
-      const btcOI = createMockAggregateOI('BTC');
-      const btcMC = createMockMarketCap('BTC');
+      setupExchangeOIForSymbols({ BTC: 5000000000 });
 
-      mockHttpClient.get
-        .mockResolvedValueOnce({ data: coinListResponse, status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcOI), status: 200, statusText: 'OK', headers: {} })
-        .mockResolvedValueOnce({ data: createMockApiResponse(btcMC), status: 200, statusText: 'OK', headers: {} });
+      mockCoinGeckoClient.getMarketDataByIds.mockResolvedValue([
+        createMockCoinGeckoMarketData({ id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' }),
+      ]);
 
       const response = await request(app).post('/api/refresh');
 
@@ -338,7 +361,7 @@ describe('API Endpoints', () => {
     });
 
     it('should return 500 on refresh failure', async () => {
-      mockHttpClient.get.mockRejectedValue(new Error('Refresh failed'));
+      mockCoinGeckoClient.getMarketDataByIds.mockRejectedValue(new Error('Refresh failed'));
 
       const response = await request(app).post('/api/refresh');
 
@@ -368,13 +391,7 @@ describe('API Endpoints', () => {
 
   describe('Response Format', () => {
     it('should always include success field', async () => {
-      const coinListResponse = createMockApiResponse([]);
-      mockHttpClient.get.mockResolvedValue({
-        data: coinListResponse,
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-      });
+      mockCoinGeckoClient.getMarketDataByIds.mockResolvedValue([]);
 
       const response = await request(app).get('/api/coins');
 
@@ -382,7 +399,7 @@ describe('API Endpoints', () => {
     });
 
     it('should include error details on failure', async () => {
-      mockHttpClient.get.mockRejectedValue(new Error('Test error'));
+      mockCoinGeckoClient.getMarketDataByIds.mockRejectedValue(new Error('Test error'));
 
       const response = await request(app).get('/api/coins');
 

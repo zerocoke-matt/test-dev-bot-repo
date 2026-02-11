@@ -1,42 +1,48 @@
 /**
- * Coinglass API Response Types
- * Types for interacting with the Coinglass API
+ * API Response Types
+ * Types for exchange APIs and CoinGecko API
  */
 
 /**
- * Base response structure from Coinglass API
+ * Exchange OI data (from direct exchange API)
  */
-export interface CoinglassBaseResponse<T> {
-  code: string;
-  msg: string;
-  success: boolean;
-  data: T;
-}
-
-/**
- * Open Interest data for a single coin
- */
-export interface OpenInterestData {
+export interface ExchangeOIResult {
   symbol: string;
-  exchangeName: string;
+  exchange: string;
+  exchangeSymbol: string;
   openInterest: number;
-  openInterestAmount: number;
   timestamp: number;
 }
 
 /**
- * Aggregated Open Interest response
+ * Aggregated OI across all exchanges
  */
 export interface AggregateOIData {
   symbol: string;
   totalOI: number;
   totalOIAmount: number;
-  exchanges: OpenInterestData[];
+  exchanges: ExchangeOIResult[];
   updateTime: number;
 }
 
 /**
- * Market Cap data for a single coin
+ * CoinGecko market data response item
+ */
+export interface CoinGeckoMarketItem {
+  id: string;
+  symbol: string;
+  name: string;
+  current_price: number;
+  market_cap: number;
+  market_cap_rank: number;
+  total_volume: number;
+  price_change_percentage_24h: number;
+  circulating_supply: number;
+  last_updated: string;
+}
+
+/**
+ * Market Cap data (normalized from CoinGecko)
  */
 export interface MarketCapData {
   symbol: string;
@@ -51,23 +57,13 @@ export interface MarketCapData {
 }
 
 /**
- * Coin list item
+ * Coin list item (from symbol mapping)
  */
 export interface CoinListItem {
   symbol: string;
   name: string;
   isActive: boolean;
   supportedExchanges: string[];
-}
-
-/**
- * API Error response
- */
-export interface CoinglassErrorResponse {
-  code: string;
-  msg: string;
-  success: false;
-  error?: string;
 }
 
 /**

@@ -12,14 +12,18 @@ export interface ServerConfig {
 }
 
 /**
- * Coinglass API configuration
+ * Exchange API configuration
  */
-export interface CoinglassConfig {
-  apiKey: string;
-  baseUrl: string;
+export interface ExchangeConfig {
   timeout: number;
-  maxRetries: number;
-  retryDelay: number;
+  enabled: boolean;
+}
+
+/**
+ * CoinGecko API configuration
+ */
+export interface CoinGeckoConfig {
+  timeout: number;
 }
 
 /**
@@ -41,7 +45,8 @@ export interface CacheConfig {
  */
 export interface AppConfig {
   server: ServerConfig;
-  coinglass: CoinglassConfig;
+  exchanges: Record<string, ExchangeConfig>;
+  coingecko: CoinGeckoConfig;
   filter: FilterDefaults;
   cache: CacheConfig;
 }

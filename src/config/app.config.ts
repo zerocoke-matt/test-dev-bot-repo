@@ -11,18 +11,6 @@ import { DEFAULTS } from './constants';
 dotenv.config();
 
 /**
- * Get a required environment variable
- * Throws an error if the variable is not set
- */
-function getRequiredEnv(key: string): string {
-  const value = process.env[key];
-  if (!value) {
-    throw new Error(`Required environment variable ${key} is not set`);
-  }
-  return value;
-}
-
-/**
  * Get an optional environment variable with a default value
  */
 function getOptionalEnv(key: string, defaultValue: string): string {
@@ -60,6 +48,17 @@ function getFloatEnv(key: string, defaultValue: number): number {
 }
 
 /**
+ * Get a boolean environment variable with a default value
+ */
+function getBoolEnv(key: string, defaultValue: boolean): boolean {
+  const value = process.env[key];
+  if (!value) {
+    return defaultValue;
+  }
+  return value.toLowerCase() === 'true' || value === '1';
+}
+
+/**
  * Application configuration object
  */
 export const appConfig: AppConfig = {
@@ -67,12 +66,26 @@ export const appConfig: AppConfig = {
     port: getNumberEnv('PORT', DEFAULTS.PORT),
     nodeEnv: getOptionalEnv('NODE_ENV', 'development'),
   },
-  coinglass: {
-    apiKey: getRequiredEnv('COINGLASS_API_KEY'),
-    baseUrl: getOptionalEnv('COINGLASS_BASE_URL', 'https://api.coinglass.com/api'),
-    timeout: getNumberEnv('REQUEST_TIMEOUT', DEFAULTS.REQUEST_TIMEOUT),
-    maxRetries: getNumberEnv('MAX_RETRIES', DEFAULTS.MAX_RETRIES),
-    retryDelay: getNumberEnv('RETRY_DELAY', DEFAULTS.RETRY_DELAY),
+  exchanges: {
+    binance: {
+      timeout: getNumberEnv('BINANCE_TIMEOUT', DEFAULTS.REQUEST_TIMEOUT),
+      enabled: getBoolEnv('BINANCE_ENABLED', true),
+    },
+    bybit: {
+      timeout: getNumberEnv('BYBIT_TIMEOUT', DEFAULTS.REQUEST_TIMEOUT),
+      enabled: getBoolEnv('BYBIT_ENABLED', true),
+    },
+    bitget: {
+      timeout: getNumberEnv('BITGET_TIMEOUT', DEFAULTS.REQUEST_TIMEOUT),
+      enabled: getBoolEnv('BITGET_ENABLED', true),
+    },
+    okx: {
+      timeout: getNumberEnv('OKX_TIMEOUT', DEFAULTS.REQUEST_TIMEOUT),
+      enabled: getBoolEnv('OKX_ENABLED', true),
+    },
+  },
+  coingecko: {
+    timeout: getNumberEnv('COINGECKO_TIMEOUT', 15000),
   },
   filter: {
     multiplier: getFloatEnv('FILTER_MULTIPLIER', DEFAULTS.FILTER_MULTIPLIER),
@@ -96,18 +109,6 @@ export function validateConfig(config: AppConfig): void {
 
   if (config.cache.ttl < 0) {
     throw new Error('CACHE_TTL must be non-negative');
-  }
-
-  if (config.coinglass.timeout < 0) {
-    throw new Error('REQUEST_TIMEOUT must be non-negative');
-  }
-
-  if (config.coinglass.maxRetries < 0) {
-    throw new Error('MAX_RETRIES must be non-negative');
-  }
-
-  if (config.coinglass.retryDelay < 0) {
-    throw new Error('RETRY_DELAY must be non-negative');
   }
 }
 

@@ -4,13 +4,18 @@
  */
 
 import { createApp } from './server/app';
-import { CoinglassClient } from './api/coinglass-client';
+import { BinanceClient } from './api/exchanges/binance-client';
+import { BybitClient } from './api/exchanges/bybit-client';
+import { BitgetClient } from './api/exchanges/bitget-client';
+import { OKXClient } from './api/exchanges/okx-client';
+import { CoinGeckoClient } from './api/coingecko-client';
 import { DataFetcherService } from './services/data-fetcher.service';
 import { FilterService } from './services/filter.service';
 import { CacheService } from './services/cache.service';
 import { AggregatorService } from './services/aggregator.service';
 import { appConfig } from './config/app.config';
 import { logger } from './logger/logger';
+import { IExchangeClient } from './api/exchanges/exchange-client';
 
 /**
  * Initialize services
@@ -18,12 +23,37 @@ import { logger } from './logger/logger';
 function initializeServices() {
   logger.info('Initializing services...');
 
-  // Initialize API client
-  const coinglassClient = new CoinglassClient(appConfig.coinglass);
-  logger.info('Coinglass client initialized');
+  // Initialize exchange clients
+  const exchangeClients: IExchangeClient[] = [];
+
+  if (appConfig.exchanges.binance.enabled) {
+    exchangeClients.push(new BinanceClient(appConfig.exchanges.binance.timeout));
+    logger.info('Binance client initialized');
+  }
+
+  if (appConfig.exchanges.bybit.enabled) {
+    exchangeClients.push(new BybitClient(appConfig.exchanges.bybit.timeout));
+    logger.info('Bybit client initialized');
+  }
+
+  if (appConfig.exchanges.bitget.enabled) {
+    exchangeClients.push(new BitgetClient(appConfig.exchanges.bitget.timeout));
+    logger.info('Bitget client initialized');
+  }
+
+  if (appConfig.exchanges.okx.enabled) {
+    exchangeClients.push(new OKXClient(appConfig.exchanges.okx.timeout));
+    logger.info('OKX client initialized');
+  }
+
+  logger.info(`${exchangeClients.length} exchange clients initialized`);
+
+  // Initialize CoinGecko client
+  const coingeckoClient = new CoinGeckoClient(appConfig.coingecko.timeout);
+  logger.info('CoinGecko client initialized');
 
   // Initialize services
-  const dataFetcher = new DataFetcherService(coinglassClient);
+  const dataFetcher = new DataFetcherService(exchangeClients, coingeckoClient);
   logger.info('Data fetcher service initialized');
 
   const filterService = new FilterService();
@@ -48,7 +78,7 @@ function initializeServices() {
  */
 async function startServer() {
   try {
-    logger.info('Starting Coinglass OI vs MC Filter Backend...');
+    logger.info('Starting Exchange OI vs MC Filter Backend...');
     logger.info(`Environment: ${appConfig.server.nodeEnv}`);
     logger.info(`Port: ${appConfig.server.port}`);
 

@@ -57,9 +57,9 @@ export function createApp(aggregator: AggregatorService): Express {
   // Root endpoint
   app.get('/', (_req: Request, res: Response) => {
     res.status(HTTP_STATUS.OK).json({
-      name: 'Coinglass OI vs MC Filter API',
+      name: 'Exchange Aggregate OI vs MC Filter API',
       version: '1.0.0',
-      description: 'Backend service for filtering cryptocurrencies based on Open Interest vs Market Cap ratio',
+      description: 'Backend service for filtering cryptocurrencies based on Aggregate OI (Binance, Bybit, Bitget, OKX) vs Market Cap ratio (CoinGecko)',
       endpoints: {
         health: 'GET /api/health',
         coins: 'GET /api/coins',

@@ -3,13 +3,19 @@
  */
 
 /**
- * API endpoint paths
+ * Exchange API base URLs
  */
-export const API_ENDPOINTS = {
-  OPEN_INTEREST: '/v1/oi/openInterest',
-  MARKET_CAP: '/v1/market/marketcap',
-  COIN_LIST: '/v1/coins',
+export const EXCHANGE_URLS = {
+  BINANCE: 'https://fapi.binance.com',
+  BYBIT: 'https://api.bybit.com',
+  BITGET: 'https://api.bitget.com',
+  OKX: 'https://www.okx.com',
 } as const;
+
+/**
+ * CoinGecko API
+ */
+export const COINGECKO_URL = 'https://api.coingecko.com/api/v3' as const;
 
 /**
  * Cache keys
@@ -18,6 +24,7 @@ export const CACHE_KEYS = {
   ALL_COINS: 'all_coins',
   COIN_PREFIX: 'coin_',
   STATISTICS: 'statistics',
+  MARKET_DATA: 'market_data',
 } as const;
 
 /**
@@ -44,6 +51,7 @@ export const ERROR_CODES = {
   NOT_FOUND: 'NOT_FOUND',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
   CACHE_ERROR: 'CACHE_ERROR',
+  EXCHANGE_ERROR: 'EXCHANGE_ERROR',
 } as const;
 
 /**
@@ -70,3 +78,8 @@ export const VALIDATION = {
   MAX_LIMIT: 1000,
   MIN_LIMIT: 1,
 } as const;
+
+/**
+ * Supported exchanges
+ */
+export const SUPPORTED_EXCHANGES = ['binance', 'bybit', 'bitget', 'okx'] as const;

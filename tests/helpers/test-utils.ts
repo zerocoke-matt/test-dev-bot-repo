@@ -12,9 +12,10 @@ import {
 import {
   AggregateOIData,
   MarketCapData,
-  CoinglassBaseResponse,
   CoinListItem,
 } from '../../src/types/api.types';
+import { ExchangeOIData } from '../../src/api/exchanges/exchange-client';
+import { CoinGeckoMarketData } from '../../src/api/coingecko-client';
 
 /**
  * Generate a mock Coin object with default values
@@ -84,26 +85,40 @@ export function createMockFilterResult(
 }
 
 /**
- * Create mock AggregateOIData
+ * Create mock AggregateOIData (new exchange-based format)
  */
 export function createMockAggregateOI(symbol: string = 'BTC'): AggregateOIData {
   return {
     symbol,
-    totalOI: 50000,
+    totalOI: 2000000000,
     totalOIAmount: 2000000000,
     exchanges: [
       {
         symbol,
-        exchangeName: 'Binance',
-        openInterest: 25000,
-        openInterestAmount: 1000000000,
+        exchange: 'binance',
+        exchangeSymbol: `${symbol}USDT`,
+        openInterest: 800000000,
         timestamp: Date.now(),
       },
       {
         symbol,
-        exchangeName: 'OKX',
-        openInterest: 25000,
-        openInterestAmount: 1000000000,
+        exchange: 'bybit',
+        exchangeSymbol: `${symbol}USDT`,
+        openInterest: 500000000,
+        timestamp: Date.now(),
+      },
+      {
+        symbol,
+        exchange: 'bitget',
+        exchangeSymbol: `${symbol}USDT`,
+        openInterest: 400000000,
+        timestamp: Date.now(),
+      },
+      {
+        symbol,
+        exchange: 'okx',
+        exchangeSymbol: `${symbol}-USDT-SWAP`,
+        openInterest: 300000000,
         timestamp: Date.now(),
       },
     ],
@@ -112,7 +127,7 @@ export function createMockAggregateOI(symbol: string = 'BTC'): AggregateOIData {
 }
 
 /**
- * Create mock MarketCapData
+ * Create mock MarketCapData (from CoinGecko)
  */
 export function createMockMarketCap(symbol: string = 'BTC'): MarketCapData {
   return {
@@ -129,29 +144,45 @@ export function createMockMarketCap(symbol: string = 'BTC'): MarketCapData {
 }
 
 /**
- * Create mock Coinglass API success response
+ * Create mock ExchangeOIData (individual exchange response)
  */
-export function createMockApiResponse<T>(data: T): CoinglassBaseResponse<T> {
+export function createMockExchangeOIData(
+  symbol: string = 'BTC',
+  exchange: string = 'binance',
+  overrides?: Partial<ExchangeOIData>
+): ExchangeOIData {
+  const exchangeSymbol = exchange === 'okx'
+    ? `${symbol}-USDT-SWAP`
+    : `${symbol}USDT`;
+
   return {
-    code: '0',
-    msg: 'success',
-    success: true,
-    data,
+    symbol,
+    exchangeSymbol,
+    exchange,
+    openInterest: 500000000,
+    timestamp: Date.now(),
+    ...overrides,
   };
 }
 
 /**
- * Create mock Coinglass API error response
+ * Create mock CoinGeckoMarketData
  */
-export function createMockApiErrorResponse(
-  message: string = 'API Error',
-  code: string = '1'
-): CoinglassBaseResponse<never> {
+export function createMockCoinGeckoMarketData(
+  overrides?: Partial<CoinGeckoMarketData>
+): CoinGeckoMarketData {
   return {
-    code,
-    msg: message,
-    success: false,
-    data: null as never,
+    id: 'bitcoin',
+    symbol: 'btc',
+    name: 'Bitcoin',
+    current_price: 40000,
+    market_cap: 500000000000,
+    market_cap_rank: 1,
+    total_volume: 20000000000,
+    price_change_percentage_24h: 2.5,
+    circulating_supply: 19000000,
+    last_updated: new Date().toISOString(),
+    ...overrides,
   };
 }
 
@@ -163,7 +194,7 @@ export function createMockCoinListItem(symbol: string = 'BTC'): CoinListItem {
     symbol,
     name: `${symbol} Token`,
     isActive: true,
-    supportedExchanges: ['Binance', 'OKX', 'Bybit'],
+    supportedExchanges: ['binance', 'bybit', 'bitget', 'okx'],
   };
 }
 
